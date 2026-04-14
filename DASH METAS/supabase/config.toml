@@ -1,4 +1,0 @@
-project_id = "nbqtygcltwlmyfuolrsz"
-
-[functions.generate-insights]
-verify_jwt = false
