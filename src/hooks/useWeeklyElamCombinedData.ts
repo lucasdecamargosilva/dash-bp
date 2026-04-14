@@ -1,0 +1,116 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+interface WeeklyPipelineData {
+  id: number;
+  contato: number;
+  mensagem_enviada: number;
+  conexao: number;
+  whatsapp_obtido: number;
+  reuniao_agendada: number;
+  reuniao_realizada: number;
+  meta_mensagens_enviadas: number;
+  meta_reunioes_agendadas: number;
+  meta_reunioes_realizadas: number;
+  created_at: string;
+  data_inicio: string;
+  data_fim: string;
+  inboundRecordId?: number;
+  outboundRecordId?: number;
+}
+
+export const useWeeklyElamCombinedData = (
+  selectedMonth: string,
+  selectedWeek: number,
+  enabled: boolean = true
+) => {
+  return useQuery({
+    queryKey: ["weekly-elam-combined", selectedMonth, selectedWeek],
+    enabled,
+    queryFn: async () => {
+      // Parse selected month (format: "2025-10")
+      const [year, month] = selectedMonth.split("-");
+      
+      // Calculate week ranges based on the week number
+      let startDay: number;
+      let endDay: number;
+      const lastDayOfMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+      
+      switch (selectedWeek) {
+        case 1:
+          startDay = 1;
+          endDay = 7;
+          break;
+        case 2:
+          startDay = 7;
+          endDay = 14;
+          break;
+        case 3:
+          startDay = 14;
+          endDay = 21;
+          break;
+        case 4:
+          startDay = 21;
+          endDay = lastDayOfMonth;
+          break;
+        default:
+          startDay = 1;
+          endDay = 7;
+      }
+
+      const dataInicio = `${year}-${month}-${String(startDay).padStart(2, '0')}`;
+      const dataFim = `${year}-${month}-${String(endDay).padStart(2, '0')}`;
+
+      // Fetch from pipeline_elam_inbound
+      const inboundResult = await supabase
+        .from("pipeline_elam_inbound" as any)
+        .select("*")
+        .eq("data_inicio", dataInicio)
+        .eq("data_fim", dataFim)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (inboundResult.error) throw inboundResult.error;
+      const inboundData = inboundResult.data as any;
+
+      // Fetch from pipeline_elam_outbound
+      const outboundResult = await supabase
+        .from("pipeline_elam_outbound" as any)
+        .select("*")
+        .eq("data_inicio", dataInicio)
+        .eq("data_fim", dataFim)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (outboundResult.error) throw outboundResult.error;
+      const outboundData = outboundResult.data as any;
+
+      // If both are null, return null
+      if (!inboundData && !outboundData) return null;
+
+      // Sum the data from both tables
+      const combined: WeeklyPipelineData = {
+        id: inboundData?.id || outboundData?.id || 0,
+        contato: (inboundData?.contato || 0) + (outboundData?.contato || 0),
+        mensagem_enviada: (inboundData?.mensagem_enviada || 0) + (outboundData?.mensagem_enviada || 0),
+        conexao: (inboundData?.conexao || 0) + (outboundData?.conexao || 0),
+        whatsapp_obtido: (inboundData?.whatsapp_obtido || 0) + (outboundData?.whatsapp_obtido || 0),
+        reuniao_agendada: (inboundData?.reuniao_agendada || 0) + (outboundData?.reuniao_agendada || 0),
+        reuniao_realizada: (inboundData?.reuniao_realizada || 0) + (outboundData?.reuniao_realizada || 0),
+        meta_mensagens_enviadas: outboundData?.meta_mensagens_enviadas || 0,
+        meta_reunioes_agendadas: outboundData?.meta_reunioes_agendadas || 0,
+        meta_reunioes_realizadas: outboundData?.meta_reunioes_realizadas || 0,
+        created_at: inboundData?.created_at || outboundData?.created_at || new Date().toISOString(),
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        inboundRecordId: inboundData?.id,
+        outboundRecordId: outboundData?.id,
+      };
+
+      return combined;
+    },
+    refetchInterval: 30000,
+  });
+};
