@@ -1,17 +1,14 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-
-# Increase Node memory for build
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci --legacy-peer-deps --ignore-scripts
+RUN npm ci --legacy-peer-deps
 
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
 COPY public ./public
 COPY src ./src
-COPY sql ./sql
 
 RUN npm run build
 
