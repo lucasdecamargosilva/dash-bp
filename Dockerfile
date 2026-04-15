@@ -1,10 +1,10 @@
-FROM node:20-slim AS build
+FROM node:20 AS build
 
 WORKDIR /app
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-COPY package.json package-lock.json .npmrc ./
-RUN npm ci --legacy-peer-deps
+COPY package.json .npmrc ./
+RUN npm install --legacy-peer-deps
 
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
 COPY public ./public
