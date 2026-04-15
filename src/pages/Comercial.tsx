@@ -361,7 +361,6 @@ const Comercial = () => {
 
   const sidebarItems = [
     { key: "geral", label: "Visao Geral", icon: BarChart3 },
-    ...sectionConsultores.map(c => ({ key: c.id, label: c.nome, icon: User })),
     { key: "config", label: "Configuracoes", icon: Settings },
   ];
 
@@ -781,166 +780,6 @@ const Comercial = () => {
                   <PacingChart diarioData={diarioData} meta={meta.meta_faturamento} daysInMonth={daysInMonth} />
                 </div>
 
-                {/* Ranking Table — filtered by section */}
-                <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi overflow-hidden animate-fade-up delay-3">
-                  <div className="px-5 py-4 border-b border-steel-100 dark:border-border flex items-center justify-between">
-                    <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">
-                      Ranking — {section === "pre_venda" ? "Pre Venda" : section === "vendas" ? "Vendas" : "Total Geral"}
-                    </h3>
-                    <span className="text-[10px] font-body font-semibold text-steel-400 dark:text-muted-foreground">{sectionConsultores.length} colaborador(es)</span>
-                  </div>
-                  <div className="overflow-x-auto bp-scroll">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
-                          <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">#</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Consultor</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">% Meta</th>
-                          {section === "total" && (
-                            <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Setor</th>
-                          )}
-                          {(section === "pre_venda" || section === "total") && (
-                            <>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Leads</th>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Agendadas</th>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Realizadas</th>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">No Show</th>
-                            </>
-                          )}
-                          {(section === "vendas" || section === "total") && (
-                            <>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Vendas</th>
-                              <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Faturamento</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sectionConsultores
-                          .map(c => ({ ...c, data: totals.byConsultor.get(c.id)!, cMeta: getConsultorMeta(c) }))
-                          .sort((a, b) => section === "vendas" ? b.data.valor - a.data.valor : b.data.leads - a.data.leads)
-                          .map((c, i) => (
-                            <tr key={c.id} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors cursor-pointer" onClick={() => setActiveTab(c.id)}>
-                              <td className="px-4 py-3 font-body text-sm text-steel-400">{i === 0 ? <Trophy className="h-4 w-4 text-amber-500" /> : i + 1}</td>
-                              <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">{c.nome}</td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="text-[10px] font-body font-bold bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded">{c.pct_meta || 0}%</span>
-                              </td>
-                              {section === "total" && (
-                                <td className="px-4 py-3 text-center">
-                                  <span className={cn("text-[10px] font-body font-bold px-2 py-0.5 rounded", (c.setor || "pre_venda") === "pre_venda" ? "bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400" : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")}>
-                                    {(c.setor || "pre_venda") === "pre_venda" ? "PV" : "V"}
-                                  </span>
-                                </td>
-                              )}
-                              {(section === "pre_venda" || section === "total") && (
-                                <>
-                                  <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.data.leads}</td>
-                                  <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.data.reunioes_agendadas}</td>
-                                  <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.data.reunioes}</td>
-                                  <td className="px-4 py-3 text-right font-body text-sm tabular-nums text-red-500 dark:text-red-400">{c.data.no_show}</td>
-                                </>
-                              )}
-                              {(section === "vendas" || section === "total") && (
-                                <>
-                                  <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.data.vendas}</td>
-                                  <td className="px-4 py-3 text-right font-body text-sm text-emerald-600 dark:text-emerald-400 font-semibold tabular-nums">{formatCurrency(c.data.valor)}</td>
-                                </>
-                              )}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* ABA INDIVIDUAL DO CONSULTOR */}
-            {activeConsultor && consultorData && (
-              <>
-                {/* Consultor KPIs — based on section + pct_meta */}
-                {(() => {
-                  const cm = getConsultorMeta(activeConsultor);
-                  return section === "pre_venda" ? (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 animate-fade-up delay-1">
-                      <SummaryCard label="Leads" value={consultorData.leads} meta={cm.leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
-                      <SummaryCard label="Conexoes" value={consultorData.conexoes} meta={0} icon={Link2} color="text-sky-700 dark:text-sky-300" />
-                      <SummaryCard label="Reunioes Agendadas" value={consultorData.reunioes_agendadas} meta={cm.agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                      <SummaryCard label="Reunioes Realizadas" value={consultorData.reunioes} meta={activeConsultor.meta_reunioes_realizadas || 0} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
-                      <SummaryCard label="No Show" value={consultorData.no_show} meta={0} icon={UserX} color="text-red-600 dark:text-red-400" />
-                      <SummaryCard label="Vendas" value={consultorData.vendas} meta={cm.vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                      <SummaryCard label="Faturamento" value={consultorData.valor} meta={cm.faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 animate-fade-up delay-1">
-                      <SummaryCard label="Reunioes Agendadas" value={consultorData.reunioes_agendadas} meta={cm.agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                      <SummaryCard label="No Show" value={consultorData.no_show} meta={0} icon={UserX} color="text-red-600 dark:text-red-400" />
-                      <SummaryCard label="Reunioes Realizadas" value={consultorData.reunioes} meta={activeConsultor.meta_reunioes_realizadas || 0} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
-                      <SummaryCard label="Vendas" value={consultorData.vendas} meta={cm.vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                      <SummaryCard label="Faturamento" value={consultorData.valor} meta={cm.faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
-                    </div>
-                  );
-                })()}
-
-                {/* Input Form */}
-                <div className="animate-fade-up delay-2">
-                  <ConsultorInput consultor={activeConsultor} mes={mes} onSaved={() => setRefreshKey(k => k + 1)} />
-                </div>
-
-                {/* History Table */}
-                <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi overflow-hidden animate-fade-up delay-3">
-                  <div className="px-5 py-4 border-b border-steel-100 dark:border-border">
-                    <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Historico Diario</h3>
-                  </div>
-                  <div className="overflow-x-auto bp-scroll">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
-                          <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Data</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Leads</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Agendadas</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Reunioes</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Vendas</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Faturamento</th>
-                          <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Acoes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {consultorDiario.length === 0 ? (
-                          <tr><td colSpan={7} className="text-center py-8 text-sm font-body text-steel-400 dark:text-muted-foreground">Nenhum registro ainda. Use o formulario acima para adicionar.</td></tr>
-                        ) : consultorDiario.sort((a, b) => b.data.localeCompare(a.data)).map(d => (
-                          <tr key={d.id} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors group">
-                            <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
-                              {new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                            </td>
-                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{d.leads_novos}</td>
-                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{d.reunioes_agendadas || 0}</td>
-                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{d.reunioes}</td>
-                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{d.vendas}</td>
-                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{formatCurrency(d.valor_vendas)}</td>
-                            <td className="px-4 py-3 text-center">
-                              <Button
-                                variant="ghost" size="sm"
-                                className="h-7 w-7 p-0 text-steel-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
-                                onClick={async () => {
-                                  const dataFormatada = new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                                  if (!window.confirm(`Deseja excluir o registro do dia ${dataFormatada}?`)) return;
-                                  const { error } = await (supabase as any).from('comercial_diario').delete().eq('id', d.id);
-                                  if (error) { toast.error("Erro ao deletar"); return; }
-                                  toast.success("Registro removido");
-                                  setRefreshKey(k => k + 1);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </>
             )}
 
@@ -969,7 +808,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
 }) {
   // Canal config
   const [editingCanal, setEditingCanal] = useState<string | null>(null);
-  const [canalForm, setCanalForm] = useState({ responsavel: "", setor: "pre_venda", meta_leads: "", meta_reunioes: "", meta_vendas: "", meta_faturamento: "" });
+  const [canalForm, setCanalForm] = useState({ responsavel: "", setor: "pre_venda", pct_meta: "", meta_leads: "", meta_reunioes: "", meta_vendas: "", meta_faturamento: "" });
   const [savingCanal, setSavingCanal] = useState(false);
 
   const handleSaveCanal = async (canal: string) => {
@@ -979,6 +818,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
         canal,
         responsavel: canalForm.responsavel,
         setor: canalForm.setor,
+        pct_meta: parseFloat(canalForm.pct_meta) || 0,
         meta_leads: parseInt(canalForm.meta_leads) || 0,
         meta_reunioes: parseInt(canalForm.meta_reunioes) || 0,
         meta_vendas: parseInt(canalForm.meta_vendas) || 0,
@@ -1002,6 +842,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
     setCanalForm({
       responsavel: cfg?.responsavel || "",
       setor: cfg?.setor || "pre_venda",
+      pct_meta: cfg?.pct_meta?.toString() || "",
       meta_leads: cfg?.meta_leads?.toString() || "",
       meta_reunioes: cfg?.meta_reunioes?.toString() || "",
       meta_vendas: cfg?.meta_vendas?.toString() || "",
@@ -1393,6 +1234,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
                 <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Canal</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Responsavel</th>
                 <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Setor</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">% Meta</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Leads</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Reun.</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Vendas</th>
@@ -1424,6 +1266,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
                             </SelectContent>
                           </Select>
                         </td>
+                        <td className="px-4 py-2"><Input type="number" value={canalForm.pct_meta} onChange={e => setCanalForm({ ...canalForm, pct_meta: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-16" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_leads} onChange={e => setCanalForm({ ...canalForm, meta_leads: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_reunioes} onChange={e => setCanalForm({ ...canalForm, meta_reunioes: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_vendas} onChange={e => setCanalForm({ ...canalForm, meta_vendas: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
@@ -1451,6 +1294,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
                           </span>
                         ) : <span className="text-steel-300 dark:text-muted-foreground/30 text-[10px]">-</span>}
                       </td>
+                      <td className="px-4 py-3 text-right font-body text-sm font-bold text-sky-600 dark:text-sky-400 tabular-nums">{cfg?.pct_meta ? `${cfg.pct_meta}%` : <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_leads || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_reunioes || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_vendas || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
