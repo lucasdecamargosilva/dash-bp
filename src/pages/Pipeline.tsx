@@ -52,16 +52,16 @@ function PipelineKPI({ label, value, icon: Icon, color, meta, suffix }: {
   const pctBg = pct !== null ? (pct >= 100 ? "bg-emerald-50 dark:bg-emerald-500/10" : pct >= 80 ? "bg-amber-50 dark:bg-amber-500/10" : "bg-red-50 dark:bg-red-500/10") : "";
 
   return (
-    <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border p-4 shadow-card h-full">
+    <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border p-4 shadow-card h-full overflow-hidden">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className={cn("h-4 w-4", color)} />
-        <span className="text-[10px] font-body font-semibold uppercase tracking-[0.06em] text-steel-400 dark:text-muted-foreground">
+        <Icon className={cn("h-4 w-4 flex-shrink-0", color)} />
+        <span className="text-[10px] font-body font-semibold uppercase tracking-[0.06em] text-steel-400 dark:text-muted-foreground leading-tight">
           {label}
         </span>
       </div>
       <p className={cn(
         "font-display font-bold text-navy-900 dark:text-foreground tabular-nums",
-        suffix === "R$" ? "text-sm sm:text-base" : "text-2xl"
+        suffix === "R$" ? "text-xs sm:text-sm" : "text-2xl"
       )}>
         {suffix === "R$" ? formatFullCurrency(value) : value.toLocaleString('pt-BR')}
       </p>
