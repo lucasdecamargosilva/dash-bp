@@ -4,7 +4,7 @@ WORKDIR /app
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps && npm install @rollup/rollup-linux-x64-musl --no-save
 
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
 COPY public ./public
