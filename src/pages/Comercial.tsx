@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
 import { useGHLData } from "@/hooks/useGHLData";
+import { useTenant } from "@/context/TenantContext";
 
 // Types
 interface Consultor {
@@ -258,6 +259,7 @@ function ConsultorInput({ consultor, mes, onSaved }: { consultor: Consultor; mes
 
 // ---- Main Page ----
 const Comercial = () => {
+  const { tenant } = useTenant();
   const [section, setSection] = useState<"pre_venda" | "vendas" | "total">("pre_venda");
   const [activeTab, setActiveTab] = useState("geral");
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -367,6 +369,20 @@ const Comercial = () => {
       faturamento: Math.round(meta.meta_faturamento * pct),
     };
   };
+
+  if (!tenant.ghlLocationId) {
+    return (
+      <div className="min-h-screen bg-background bp-scroll">
+        <DashboardHeader />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center space-y-3 bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border p-8 shadow-kpi max-w-md">
+            <p className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Pipeline nao configurado</p>
+            <p className="text-sm font-body text-steel-400 dark:text-muted-foreground">Sua conta ainda nao tem um pipeline de vendas configurado. Entre em contato com o administrador.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { startOfMonth } from "date-fns";
 import { type DateRange } from "react-day-picker";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { useTenant } from "@/context/TenantContext";
 import { useGHLData } from "@/hooks/useGHLData";
 import { type ChannelMetrics } from "@/lib/ghl";
 import { cn } from "@/lib/utils";
@@ -469,6 +470,7 @@ function ResultCard({ label, value, icon: Icon, isCurrency }: { label: string; v
 
 // ---- Main Page ----
 const Pipeline = () => {
+  const { tenant } = useTenant();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
@@ -508,6 +510,22 @@ const Pipeline = () => {
     }
     return totals;
   }, [data, filterPessoa]);
+
+  if (!tenant.ghlLocationId) {
+    return (
+      <div className="min-h-screen bg-background bp-scroll">
+        <DashboardHeader />
+        <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center space-y-3 bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border p-8 shadow-kpi max-w-md">
+              <p className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Pipeline nao configurado</p>
+              <p className="text-sm font-body text-steel-400 dark:text-muted-foreground">Sua conta ainda nao tem um pipeline de vendas configurado. Entre em contato com o administrador.</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
