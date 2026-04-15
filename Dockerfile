@@ -2,16 +2,22 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json .npmrc ./
-RUN npm ci --legacy-peer-deps
+# Increase Node memory for build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-COPY . .
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --legacy-peer-deps --ignore-scripts
+
+COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
+COPY public ./public
+COPY src ./src
+COPY sql ./sql
+
 RUN npm run build
 
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# SPA routing — all routes go to index.html
 RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
