@@ -100,6 +100,20 @@ export function DashboardOverview() {
     );
   }
 
+  // Check if tenant has pipeline configured
+  if (!tenant.ghlLocationId && !ghlLoading && !loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center space-y-3 bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border p-8 shadow-kpi max-w-md">
+          <p className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Pipeline nao configurado</p>
+          <p className="text-sm font-body text-steel-400 dark:text-muted-foreground">
+            Sua conta ainda nao tem um pipeline de vendas configurado. Entre em contato com o administrador.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // GHL-based funnel data — raw values per stage (all 8 stages)
   const gRawStages = [
     ghl?.contato ?? 0,

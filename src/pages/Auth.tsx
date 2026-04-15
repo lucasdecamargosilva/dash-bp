@@ -178,15 +178,15 @@ const Auth = () => {
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="signup-name" className="text-sm font-medium font-body text-foreground">Nome completo</Label>
-                <Input id="signup-name" type="text" placeholder="Seu nome" className="h-10 font-body"
-                  {...signUpForm.register('displayName', { required: 'Nome obrigatorio' })} />
+                <Label htmlFor="signup-email" className="text-sm font-medium font-body text-foreground">Email</Label>
+                <Input id="signup-email" type="email" autoComplete="email" placeholder="seu@email.com" className="h-10 font-body"
+                  {...signUpForm.register('email', { required: 'Email obrigatorio' })} />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="signup-email" className="text-sm font-medium font-body text-foreground">Email</Label>
-                <Input id="signup-email" type="email" placeholder="seu@email.com" className="h-10 font-body"
-                  {...signUpForm.register('email', { required: 'Email obrigatorio' })} />
+                <Label htmlFor="signup-name" className="text-sm font-medium font-body text-foreground">Nome completo</Label>
+                <Input id="signup-name" type="text" autoComplete="name" placeholder="Seu nome" className="h-10 font-body"
+                  {...signUpForm.register('displayName', { required: 'Nome obrigatorio' })} />
               </div>
 
               <div className="space-y-1.5">

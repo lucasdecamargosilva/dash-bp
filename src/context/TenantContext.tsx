@@ -102,9 +102,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
       if (data && !error) {
         setTenant(parseTenantRow(data));
-      } else {
-        // Fallback to default (PR1ME ROI)
+      } else if (adminCheck) {
+        // Admin without own tenant sees default (PR1ME ROI)
         setTenant({ ...DEFAULT_CONFIG, userId: user.id });
+      } else {
+        // Regular user without tenant config — no pipeline access
+        setTenant({ ...DEFAULT_CONFIG, userId: user.id, ghlLocationId: "", ghlPipelineId: "", ghlToken: "", empresa: "Sem empresa configurada" });
       }
 
       // If admin, load all tenants
