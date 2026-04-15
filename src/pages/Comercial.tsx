@@ -274,6 +274,16 @@ const Comercial = () => {
     to: new Date(),
   });
 
+  // Canal config
+  interface CanalConfig { id: number; canal: string; responsavel: string; setor: string; meta_leads: number; meta_reunioes: number; meta_vendas: number; meta_faturamento: number; }
+  const [canalConfigs, setCanalConfigs] = useState<CanalConfig[]>([]);
+
+  useEffect(() => {
+    (supabase as any).from("canal_config").select("*").order("canal").then(({ data }: any) => {
+      setCanalConfigs(data || []);
+    });
+  }, [refreshKey]);
+
   // GHL pipeline data
   const { data: ghlData, isLoading: ghlLoading } = useGHLData(dateRange);
 
@@ -572,12 +582,12 @@ const Comercial = () => {
                   </div>
                 )}
 
-                {/* Performance por Canal — Cards */}
+                {/* Performance por Canal — Cards com responsavel e metas */}
                 {ghlData && ghlData.byCanal.length > 0 && (
                   <div className="animate-fade-up delay-2">
                     <div className="mb-4">
                       <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance por Canal</h3>
-                      <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Resultados por fonte de aquisicao e % da meta</p>
+                      <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Resultados por canal, responsavel e % da meta individual</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {ghlData.byCanal
@@ -592,16 +602,19 @@ const Comercial = () => {
                           const reunioes = acc[4];
                           const vendas = c.vendaFechada;
                           const fat = c.faturamento;
-                          const pctLeads = meta.meta_leads > 0 ? Math.min((leads / meta.meta_leads) * 100, 100) : 0;
-                          const pctVendas = meta.meta_vendas > 0 ? Math.min((vendas / meta.meta_vendas) * 100, 100) : 0;
                           const hasVendas = vendas > 0;
 
-                          // Mini funnel widths (proportional)
-                          const funnelMax = leads || 1;
-                          const funnelStages = [
-                            { label: "Leads", value: leads, pct: 100 },
-                            { label: "Reunioes", value: reunioes, pct: (reunioes / funnelMax) * 100 },
-                            { label: "Vendas", value: vendas, pct: (vendas / funnelMax) * 100 },
+                          // Canal config (responsavel + metas)
+                          const cfg = canalConfigs.find(cc => cc.canal === c.canal);
+                          const responsavel = cfg?.responsavel || "";
+                          const cMeta = { leads: cfg?.meta_leads || 0, reunioes: cfg?.meta_reunioes || 0, vendas: cfg?.meta_vendas || 0, fat: cfg?.meta_faturamento || 0 };
+                          const hasMeta = cMeta.leads > 0 || cMeta.vendas > 0;
+
+                          // Metas por canal
+                          const metaItems = [
+                            { label: "Leads", real: leads, meta: cMeta.leads, color: "bg-sky-400 dark:bg-sky-500" },
+                            { label: "Reunioes", real: reunioes, meta: cMeta.reunioes, color: "bg-amber-400 dark:bg-amber-500" },
+                            { label: "Vendas", real: vendas, meta: cMeta.vendas, color: "bg-emerald-500 dark:bg-emerald-400" },
                           ];
 
                           return (
@@ -612,7 +625,7 @@ const Comercial = () => {
                                 : "bg-white dark:bg-card border-steel-100 dark:border-border"
                             )}>
                               {/* Header */}
-                              <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center justify-between mb-1">
                                 <h4 className="text-sm font-body font-bold text-navy-900 dark:text-foreground">{c.canal}</h4>
                                 {hasVendas && (
                                   <span className="text-[10px] font-body font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full">
@@ -620,63 +633,67 @@ const Comercial = () => {
                                   </span>
                                 )}
                               </div>
+                              {/* Responsavel */}
+                              {responsavel && (
+                                <p className="text-[10px] font-body text-sky-600 dark:text-sky-400 font-semibold mb-3">
+                                  {responsavel}
+                                </p>
+                              )}
+                              {!responsavel && <div className="mb-3" />}
 
-                              {/* Metrics grid */}
-                              <div className="grid grid-cols-3 gap-3 mb-3">
-                                <div>
-                                  <p className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">Leads</p>
-                                  <p className="text-lg font-display font-bold text-navy-900 dark:text-foreground tabular-nums">{leads.toLocaleString()}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">Reunioes</p>
-                                  <p className="text-lg font-display font-bold text-navy-900 dark:text-foreground tabular-nums">{reunioes}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">Faturamento</p>
+                              {/* Metrics with meta bars */}
+                              <div className="space-y-3 mb-3">
+                                {metaItems.map((m, mi) => {
+                                  const pct = m.meta > 0 ? Math.min((m.real / m.meta) * 100, 100) : 0;
+                                  return (
+                                    <div key={mi}>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">{m.label}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-sm font-display font-bold text-navy-900 dark:text-foreground tabular-nums">{m.real.toLocaleString()}</span>
+                                          {m.meta > 0 && (
+                                            <span className={cn("text-[10px] font-body font-bold px-1 py-0.5 rounded",
+                                              pct >= 100 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                              pct >= 50 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                              "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground"
+                                            )}>
+                                              {pct.toFixed(0)}%
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {m.meta > 0 && (
+                                        <div className="h-1.5 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
+                                          <div className={cn("h-full rounded-full transition-all duration-500", m.color)} style={{ width: `${pct}%` }} />
+                                        </div>
+                                      )}
+                                      {m.meta > 0 && (
+                                        <p className="text-[9px] font-body text-steel-400 dark:text-muted-foreground mt-0.5">Meta: {m.label === "Vendas" ? m.meta : m.meta.toLocaleString()}</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Faturamento */}
+                              <div className="pt-3 border-t border-steel-100/60 dark:border-border/40">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">Faturamento</span>
                                   <p className={cn("text-sm font-display font-bold tabular-nums", fat > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-steel-300 dark:text-muted-foreground/30")}>
                                     {fat > 0 ? formatCurrency(fat) : "-"}
                                   </p>
                                 </div>
+                                {cMeta.fat > 0 && (
+                                  <div className="flex items-center justify-between mt-1">
+                                    <span className="text-[9px] font-body text-steel-400 dark:text-muted-foreground">Meta: {formatCurrency(cMeta.fat)}</span>
+                                    <span className={cn("text-[10px] font-body font-bold",
+                                      fat >= cMeta.fat ? "text-emerald-600 dark:text-emerald-400" :
+                                      fat >= cMeta.fat * 0.5 ? "text-amber-600 dark:text-amber-400" :
+                                      "text-steel-400 dark:text-muted-foreground"
+                                    )}>{(cMeta.fat > 0 ? (fat / cMeta.fat) * 100 : 0).toFixed(0)}%</span>
+                                  </div>
+                                )}
                               </div>
-
-                              {/* Mini funnel */}
-                              <div className="space-y-1.5">
-                                {funnelStages.map((s, si) => (
-                                  <div key={si} className="flex items-center gap-2">
-                                    <span className="text-[9px] font-body text-steel-400 dark:text-muted-foreground w-12 text-right">{s.label}</span>
-                                    <div className="flex-1 h-2 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
-                                      <div
-                                        className={cn(
-                                          "h-full rounded-full transition-all duration-500",
-                                          si === 0 ? "bg-sky-400 dark:bg-sky-500" :
-                                          si === 1 ? "bg-amber-400 dark:bg-amber-500" :
-                                          "bg-emerald-500 dark:bg-emerald-400"
-                                        )}
-                                        style={{ width: `${Math.max(s.pct, s.value > 0 ? 3 : 0)}%` }}
-                                      />
-                                    </div>
-                                    <span className="text-[10px] font-body font-bold text-navy-800 dark:text-foreground/80 tabular-nums w-8 text-right">{s.value}</span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* % meta bar */}
-                              {meta.meta_leads > 0 && (
-                                <div className="mt-3 pt-3 border-t border-steel-100/60 dark:border-border/40">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[9px] font-body text-steel-400 dark:text-muted-foreground">% da meta de leads</span>
-                                    <span className={cn("text-[10px] font-body font-bold", pctLeads >= 20 ? "text-emerald-600 dark:text-emerald-400" : pctLeads >= 5 ? "text-amber-600 dark:text-amber-400" : "text-steel-400 dark:text-muted-foreground")}>
-                                      {(meta.meta_leads > 0 ? (leads / meta.meta_leads) * 100 : 0).toFixed(1)}%
-                                    </span>
-                                  </div>
-                                  <div className="h-1.5 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
-                                    <div
-                                      className={cn("h-full rounded-full transition-all duration-700", pctLeads >= 20 ? "bg-emerald-500" : pctLeads >= 5 ? "bg-amber-400" : "bg-steel-300")}
-                                      style={{ width: `${pctLeads}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -933,6 +950,8 @@ const Comercial = () => {
                 consultores={consultores}
                 metaMensal={metaMensal}
                 mes={mes}
+                ghlCanais={ghlData?.byCanal || []}
+                canalConfigs={canalConfigs}
                 onSaved={() => setRefreshKey(k => k + 1)}
               />
             )}
@@ -945,9 +964,51 @@ const Comercial = () => {
 };
 
 // ---- Config Panel ----
-function ConfigPanel({ consultores, metaMensal, mes, onSaved }: {
-  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; onSaved: () => void;
+function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, onSaved }: {
+  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; onSaved: () => void;
 }) {
+  // Canal config
+  const [editingCanal, setEditingCanal] = useState<string | null>(null);
+  const [canalForm, setCanalForm] = useState({ responsavel: "", setor: "pre_venda", meta_leads: "", meta_reunioes: "", meta_vendas: "", meta_faturamento: "" });
+  const [savingCanal, setSavingCanal] = useState(false);
+
+  const handleSaveCanal = async (canal: string) => {
+    setSavingCanal(true);
+    try {
+      const data = {
+        canal,
+        responsavel: canalForm.responsavel,
+        setor: canalForm.setor,
+        meta_leads: parseInt(canalForm.meta_leads) || 0,
+        meta_reunioes: parseInt(canalForm.meta_reunioes) || 0,
+        meta_vendas: parseInt(canalForm.meta_vendas) || 0,
+        meta_faturamento: parseFloat(canalForm.meta_faturamento) || 0,
+      };
+      const existing = canalConfigs.find((cc: any) => cc.canal === canal);
+      if (existing) {
+        await (supabase as any).from("canal_config").update(data).eq("id", existing.id);
+      } else {
+        await (supabase as any).from("canal_config").insert(data);
+      }
+      toast.success(`Canal "${canal}" salvo!`);
+      setEditingCanal(null);
+      onSaved();
+    } catch { toast.error("Erro ao salvar canal"); }
+    finally { setSavingCanal(false); }
+  };
+
+  const startEditCanal = (canal: string) => {
+    const cfg = canalConfigs.find((cc: any) => cc.canal === canal);
+    setCanalForm({
+      responsavel: cfg?.responsavel || "",
+      setor: cfg?.setor || "pre_venda",
+      meta_leads: cfg?.meta_leads?.toString() || "",
+      meta_reunioes: cfg?.meta_reunioes?.toString() || "",
+      meta_vendas: cfg?.meta_vendas?.toString() || "",
+      meta_faturamento: cfg?.meta_faturamento?.toString() || "",
+    });
+    setEditingCanal(canal);
+  };
   // Add consultor form
   const [novoNome, setNovoNome] = useState("");
   const [novoSetor, setNovoSetor] = useState<"pre_venda" | "vendas">("pre_venda");
@@ -1316,6 +1377,95 @@ function ConfigPanel({ consultores, metaMensal, mes, onSaved }: {
               </Button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Configuracao de Canais */}
+      <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi overflow-hidden animate-fade-up delay-3">
+        <div className="px-5 py-4 border-b border-steel-100 dark:border-border">
+          <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Canais — Responsavel e Metas</h3>
+          <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Atribua um responsavel e defina metas individuais por canal</p>
+        </div>
+        <div className="overflow-x-auto bp-scroll">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
+                <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Canal</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Responsavel</th>
+                <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Setor</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Leads</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Reun.</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Vendas</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Fat.</th>
+                <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Get unique canals from GHL data + existing configs
+                const allCanals = new Set<string>();
+                ghlCanais.filter((c: any) => c.total >= 3).forEach((c: any) => allCanals.add(c.canal));
+                canalConfigs.forEach((cc: any) => allCanals.add(cc.canal));
+                return Array.from(allCanals).sort().map(canal => {
+                  const cfg = canalConfigs.find((cc: any) => cc.canal === canal);
+                  const isEditing = editingCanal === canal;
+
+                  if (isEditing) {
+                    return (
+                      <tr key={canal} className="border-b border-steel-50 dark:border-border/50 bg-sky-50/30 dark:bg-secondary/30">
+                        <td className="px-4 py-2 font-body text-sm font-semibold text-navy-900 dark:text-foreground">{canal}</td>
+                        <td className="px-4 py-2"><Input value={canalForm.responsavel} onChange={e => setCanalForm({ ...canalForm, responsavel: e.target.value })} placeholder="Nome" className="h-8 text-xs font-body" /></td>
+                        <td className="px-4 py-2">
+                          <Select value={canalForm.setor} onValueChange={v => setCanalForm({ ...canalForm, setor: v })}>
+                            <SelectTrigger className="h-8 text-xs font-body"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pre_venda">Pre Venda</SelectItem>
+                              <SelectItem value="vendas">Vendas</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-4 py-2"><Input type="number" value={canalForm.meta_leads} onChange={e => setCanalForm({ ...canalForm, meta_leads: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
+                        <td className="px-4 py-2"><Input type="number" value={canalForm.meta_reunioes} onChange={e => setCanalForm({ ...canalForm, meta_reunioes: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
+                        <td className="px-4 py-2"><Input type="number" value={canalForm.meta_vendas} onChange={e => setCanalForm({ ...canalForm, meta_vendas: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
+                        <td className="px-4 py-2"><Input type="number" value={canalForm.meta_faturamento} onChange={e => setCanalForm({ ...canalForm, meta_faturamento: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-24" /></td>
+                        <td className="px-4 py-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleSaveCanal(canal)} disabled={savingCanal} className="h-7 w-7 p-0 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
+                              {savingCanal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setEditingCanal(null)} className="h-7 px-2 text-xs text-steel-400">Cancelar</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <tr key={canal} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors group">
+                      <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">{canal}</td>
+                      <td className="px-4 py-3 font-body text-sm text-sky-600 dark:text-sky-400 font-semibold">{cfg?.responsavel || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
+                      <td className="px-4 py-3 text-center">
+                        {cfg?.setor ? (
+                          <span className={cn("text-[10px] font-body font-bold px-2 py-0.5 rounded", cfg.setor === "pre_venda" ? "bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400" : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")}>
+                            {cfg.setor === "pre_venda" ? "PV" : "V"}
+                          </span>
+                        ) : <span className="text-steel-300 dark:text-muted-foreground/30 text-[10px]">-</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_leads || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
+                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_reunioes || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
+                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_vendas || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
+                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_faturamento ? formatCurrency(cfg.meta_faturamento) : <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Button variant="ghost" size="sm" onClick={() => startEditCanal(canal)} className="h-7 w-7 p-0 text-steel-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10 opacity-0 group-hover:opacity-100 transition-all">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
