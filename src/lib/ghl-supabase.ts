@@ -72,15 +72,24 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, _config?: G
     }
 
     // With date range: query individual opportunities and aggregate
+    // Use Brazil timezone (UTC-3) to match GHL filter behavior
+    // "1 abril 00:00 BR" = "1 abril 03:00 UTC"
+    const fromBR = new Date(dateRange.from);
+    fromBR.setHours(0, 0, 0, 0);
+    // Convert from local (BR) to UTC by adding 3 hours
+    const fromUTC = new Date(fromBR.getTime() + 3 * 60 * 60 * 1000);
+
     let query = (supabase as any)
       .from("ghl_pipeline_opportunities")
       .select("*")
-      .gte("last_stage_change_at", dateRange.from.toISOString());
+      .gte("last_stage_change_at", fromUTC.toISOString());
 
     if (dateRange.to) {
-      const endDate = new Date(dateRange.to);
-      endDate.setHours(23, 59, 59, 999);
-      query = query.lte("last_stage_change_at", endDate.toISOString());
+      const toBR = new Date(dateRange.to);
+      toBR.setHours(23, 59, 59, 999);
+      // "16 abril 23:59 BR" = "17 abril 02:59 UTC"
+      const toUTC = new Date(toBR.getTime() + 3 * 60 * 60 * 1000);
+      query = query.lte("last_stage_change_at", toUTC.toISOString());
     }
 
     const { data: opps, error } = await query;
