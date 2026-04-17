@@ -13,6 +13,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
 import { useGHLData } from "@/hooks/useGHLData";
@@ -880,6 +881,16 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
   const [editingCanal, setEditingCanal] = useState<string | null>(null);
   const [canalForm, setCanalForm] = useState({ responsavel: "", setor: "pre_venda", pct_meta: "", meta_leads: "", meta_reunioes: "", meta_vendas: "", meta_faturamento: "" });
   const [savingCanal, setSavingCanal] = useState(false);
+  const [deleteCanalConfirm, setDeleteCanalConfirm] = useState<{ canal: string; id: number } | null>(null);
+
+  const handleConfirmDeleteCanal = async () => {
+    if (!deleteCanalConfirm) return;
+    const { error } = await (supabase as any).from("canal_config").delete().eq("id", deleteCanalConfirm.id);
+    if (error) { toast.error("Erro ao excluir"); return; }
+    toast.success(`Config do canal "${deleteCanalConfirm.canal}" removida`);
+    setDeleteCanalConfirm(null);
+    onSaved();
+  };
 
   const handleSaveCanal = async (canal: string) => {
     setSavingCanal(true);
@@ -1271,13 +1282,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
                             <Pencil className="h-3 w-3" />
                           </Button>
                           {cfg && (
-                            <Button variant="ghost" size="sm" onClick={async () => {
-                              if (!window.confirm(`Excluir config do canal "${canal}"?`)) return;
-                              const { error } = await (supabase as any).from("canal_config").delete().eq("id", cfg.id);
-                              if (error) { toast.error("Erro ao excluir"); return; }
-                              toast.success("Config removida");
-                              onSaved();
-                            }} className="h-7 w-7 p-0 text-steel-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteCanalConfirm({ canal, id: cfg.id })} className="h-7 w-7 p-0 text-steel-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
@@ -1291,6 +1296,29 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteCanalConfirm} onOpenChange={(o) => !o && setDeleteCanalConfirm(null)}>
+        <AlertDialogContent className="bg-white dark:bg-card border-steel-100 dark:border-border">
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+              <Trash2 className="h-6 w-6 text-red-500 dark:text-red-400" />
+            </div>
+            <AlertDialogTitle className="text-center font-display text-lg">Excluir configuracao?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center font-body text-sm">
+              Tem certeza que deseja excluir a configuracao do canal <span className="font-semibold text-navy-900 dark:text-foreground">{deleteCanalConfirm?.canal}</span>?
+              <br />
+              <span className="text-[11px] text-steel-400 dark:text-muted-foreground mt-1 block">Essa acao nao pode ser desfeita. As metas e responsavel serao removidos.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-2">
+            <AlertDialogCancel className="font-body text-xs">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteCanal} className="bg-red-500 hover:bg-red-600 text-white font-body text-xs">
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
