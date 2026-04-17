@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getGHLPipelineFromCache } from "@/lib/ghl-supabase";
-import { type GHLSummary } from "@/lib/ghl";
+import { type GHLSummary, type GHLConfig } from "@/lib/ghl";
+import { useTenant } from "@/context/TenantContext";
 
 interface DateRange {
   from?: Date;
@@ -8,14 +9,25 @@ interface DateRange {
 }
 
 export function useGHLData(dateRange?: DateRange) {
+  const { tenant } = useTenant();
+
+  const config: GHLConfig = {
+    locationId: tenant.ghlLocationId,
+    pipelineId: tenant.ghlPipelineId,
+    token: tenant.ghlToken,
+    pessoaFieldId: tenant.pessoaFieldId,
+    stageMap: tenant.stageMap,
+  };
+
   const key = dateRange?.from
     ? `${dateRange.from.toISOString()}_${dateRange.to?.toISOString() || ""}`
     : "all";
 
   return useQuery<GHLSummary>({
-    queryKey: ["ghl-pipeline", key],
-    queryFn: () => getGHLPipelineFromCache(dateRange),
+    queryKey: ["ghl-pipeline", tenant.ghlLocationId, key],
+    queryFn: () => getGHLPipelineFromCache(dateRange, config),
     staleTime: 60_000,
     refetchInterval: 120_000,
+    enabled: !!tenant.ghlLocationId,
   });
 }
