@@ -1206,7 +1206,6 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
                 <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Canal</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Responsavel</th>
                 <th className="px-4 py-2.5 text-center text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Setor</th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">% Meta</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Leads</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Reun.</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Meta Vendas</th>
@@ -1246,7 +1245,6 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="px-4 py-2"><Input type="number" value={canalForm.pct_meta} onChange={e => setCanalForm({ ...canalForm, pct_meta: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-16" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_leads} onChange={e => setCanalForm({ ...canalForm, meta_leads: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_reunioes} onChange={e => setCanalForm({ ...canalForm, meta_reunioes: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
                         <td className="px-4 py-2"><Input type="number" value={canalForm.meta_vendas} onChange={e => setCanalForm({ ...canalForm, meta_vendas: e.target.value })} placeholder="0" className="h-8 text-xs font-body text-right w-20" /></td>
@@ -1274,7 +1272,6 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
                           </span>
                         ) : <span className="text-steel-300 dark:text-muted-foreground/30 text-[10px]">-</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-body text-sm font-bold text-sky-600 dark:text-sky-400 tabular-nums">{cfg?.pct_meta ? `${cfg.pct_meta}%` : <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_leads || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_reunioes || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_vendas || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
