@@ -652,8 +652,8 @@ const Comercial = () => {
                   </div>
                 )}
 
-                {/* Performance por Canal — Cards com responsavel e metas */}
-                {(ghlData || canalConfigs.length > 0) && (
+                {/* Performance por Canal — Cards com responsavel e metas (so em Pre Venda e Total) */}
+                {section !== "vendas" && (ghlData || canalConfigs.length > 0) && (
                   <div className="animate-fade-up delay-2">
                     <div className="mb-4">
                       <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance por Canal + Pessoa</h3>
