@@ -634,7 +634,7 @@ const Comercial = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {ghlData.byCanalPessoa
-                        .filter(c => c.total >= 3)
+                        .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal" && c.pessoa && c.pessoa !== "Sem pessoa")
                         .sort((a, b) => b.total - a.total)
                         .map((c, i) => {
                           const canalLabel = `${c.canal} | ${c.pessoa}`;
@@ -1180,10 +1180,16 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
                 // Get unique "Canal | Pessoa" combos from GHL data + existing configs
                 const allCanals = new Set<string>();
                 ghlCanais.filter((c: any) => c.total >= 3).forEach((c: any) => {
-                  const key = c.pessoa ? `${c.canal} | ${c.pessoa}` : c.canal;
-                  allCanals.add(key);
+                  const canal = (c.canal || "").trim();
+                  const pessoa = (c.pessoa || "").trim();
+                  if (!canal || canal === "Sem canal") return;
+                  if (!pessoa || pessoa === "Sem pessoa") return;
+                  allCanals.add(`${canal} | ${pessoa}`);
                 });
-                canalConfigs.forEach((cc: any) => allCanals.add(cc.canal));
+                canalConfigs.forEach((cc: any) => {
+                  const key = (cc.canal || "").trim();
+                  if (key && !key.includes("Sem canal") && !key.endsWith("| ")) allCanals.add(key);
+                });
                 return Array.from(allCanals).sort().map(canal => {
                   const cfg = canalConfigs.find((cc: any) => cc.canal === canal);
                   const isEditing = editingCanal === canal;
