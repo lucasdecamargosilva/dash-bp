@@ -516,9 +516,53 @@ const Comercial = () => {
             {/* VISAO GERAL */}
             {activeTab === "geral" && (
               <>
+                {/* Meta Faturamento — destaque */}
+                {meta.meta_faturamento > 0 && (
+                  <div className="animate-fade-up delay-1">
+                    {(() => {
+                      const pct = meta.meta_faturamento > 0 ? (ghlTotals.faturamento / meta.meta_faturamento) * 100 : 0;
+                      const gap = Math.max(meta.meta_faturamento - ghlTotals.faturamento, 0);
+                      return (
+                        <div className="rounded-2xl border-2 border-emerald-200 dark:border-emerald-500/30 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-white dark:from-emerald-500/10 dark:via-emerald-500/5 dark:to-card p-6 shadow-kpi">
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                              <p className="text-[10px] font-body font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-400 mb-1">Meta de Faturamento</p>
+                              <p className="text-3xl sm:text-4xl font-display font-bold text-navy-900 dark:text-foreground tabular-nums">{formatFullCurrency(ghlTotals.faturamento)}</p>
+                              <p className="text-xs font-body text-steel-500 dark:text-muted-foreground mt-1">de <span className="font-semibold text-navy-800 dark:text-foreground/80">{formatFullCurrency(meta.meta_faturamento)}</span></p>
+                            </div>
+                            <div className="text-right">
+                              <div className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-body font-bold",
+                                pct >= 100 ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" :
+                                pct >= 70 ? "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300" :
+                                "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                              )}>
+                                {pct >= 100 ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                                {pct.toFixed(1)}%
+                              </div>
+                              <p className="text-[10px] font-body text-steel-400 dark:text-muted-foreground mt-1">
+                                Faltam <span className="font-semibold text-red-500 dark:text-red-400">{formatCurrency(gap)}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="h-3 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className={cn("h-full rounded-full transition-all duration-700",
+                                pct >= 100 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" :
+                                pct >= 70 ? "bg-gradient-to-r from-amber-500 to-amber-400" :
+                                "bg-gradient-to-r from-sky-500 to-sky-400"
+                              )}
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 {/* Meta Cards — primeiro */}
                 {meta.meta_leads > 0 && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up delay-1">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up delay-2">
                     {[
                       { label: "Meta Contatos", value: meta.meta_leads, realizado: ghlTotals.contato, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20" },
                       { label: "Meta Agendamentos", value: meta.meta_agendamentos, realizado: ghlTotals.agendada, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" },
