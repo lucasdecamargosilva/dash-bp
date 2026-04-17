@@ -281,7 +281,9 @@ const Comercial = () => {
   const [allCanaisHistorico, setAllCanaisHistorico] = useState<{ canal: string; pessoa: string }[]>([]);
 
   useEffect(() => {
-    (supabase as any).from("canal_config").select("*").order("canal").then(({ data }: any) => {
+    // Load only configs for current month
+    const curMonth = dateRange?.from ? `${dateRange.from.getFullYear()}-${String(dateRange.from.getMonth() + 1).padStart(2, "0")}` : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    (supabase as any).from("canal_config").select("*").eq("mes", curMonth).order("canal").then(({ data }: any) => {
       setCanalConfigs(data || []);
     });
     // Load ALL unique canal+pessoa from history (no date filter)
@@ -298,7 +300,7 @@ const Comercial = () => {
       }
       setAllCanaisHistorico(unique);
     });
-  }, [refreshKey]);
+  }, [refreshKey, dateRange]);
 
   // Current month from dateRange (for simulador de metas)
   const currentMes = useMemo(() => {
@@ -897,6 +899,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
     try {
       const data = {
         canal,
+        mes,
         responsavel: canalForm.responsavel,
         setor: canalForm.setor,
         pct_meta: parseFloat(canalForm.pct_meta) || 0,
@@ -905,7 +908,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
         meta_vendas: parseInt(canalForm.meta_vendas) || 0,
         meta_faturamento: parseFloat(canalForm.meta_faturamento) || 0,
       };
-      const existing = canalConfigs.find((cc: any) => cc.canal === canal);
+      const existing = canalConfigs.find((cc: any) => cc.canal === canal && cc.mes === mes);
       if (existing) {
         await (supabase as any).from("canal_config").update(data).eq("id", existing.id);
       } else {
