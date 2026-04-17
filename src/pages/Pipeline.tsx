@@ -238,6 +238,14 @@ function PipelineTable({ data, view, filterPessoa }: { data: ChannelMetrics[]; v
 
   // Sort with accumulated values
   filtered = [...filtered].sort((a, b) => {
+    // Alphabetic sort for label column
+    if (sortKey === "label") {
+      const aLabel = view === "canal" ? a.canal : view === "pessoa" ? a.pessoa : `${a.canal} | ${a.pessoa}`;
+      const bLabel = view === "canal" ? b.canal : view === "pessoa" ? b.pessoa : `${b.canal} | ${b.pessoa}`;
+      const cmp = aLabel.localeCompare(bLabel);
+      return sortDir === "desc" ? -cmp : cmp;
+    }
+
     const aVals = STAGE_KEYS.map(k => a[k] as number);
     const bVals = STAGE_KEYS.map(k => b[k] as number);
     const aAcc: number[] = []; const bAcc: number[] = [];
@@ -265,8 +273,8 @@ function PipelineTable({ data, view, filterPessoa }: { data: ChannelMetrics[]; v
       <table className="w-full">
         <thead>
           <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
-            <th className="px-3 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">
-              {view === "canal" ? "Canal" : view === "pessoa" ? "Pessoa / Conta" : "Canal | Pessoa"}
+            <th onClick={() => handleSort("label")} className="px-3 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">
+              {view === "canal" ? "Canal" : view === "pessoa" ? "Pessoa / Conta" : "Canal | Pessoa"} {sortKey === "label" ? (sortDir === "desc" ? "↓" : "↑") : ""}
             </th>
             {STAGES.map(s => (
               <th key={s.key} onClick={() => handleSort(s.key)} className="px-3 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">
