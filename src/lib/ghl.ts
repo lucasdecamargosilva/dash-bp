@@ -50,6 +50,8 @@ export interface GHLOpportunity {
   createdAt: string;
   lastStageChangeAt: string;
   status: string;
+  followers: string[];
+  assignedTo: string | null;
 }
 
 export interface ChannelMetrics {
@@ -75,6 +77,14 @@ export interface VendaFechada {
   date: string;
 }
 
+export interface CloserStats {
+  userId: string;
+  reunioesRealizadas: number;
+  propostas: number;
+  vendas: number;
+  faturamento: number;
+}
+
 export interface GHLSummary {
   byCanal: ChannelMetrics[];
   byPessoa: ChannelMetrics[];
@@ -82,6 +92,7 @@ export interface GHLSummary {
   totals: ChannelMetrics;
   totalOpportunities: number;
   vendas?: VendaFechada[];
+  closers?: CloserStats[];
 }
 
 function extractFieldValue(f: any): string {
@@ -125,6 +136,8 @@ function parseOpportunity(raw: any, config: GHLConfig): GHLOpportunity {
     createdAt: raw.createdAt || "",
     lastStageChangeAt: raw.lastStageChangeAt || "",
     status: raw.status || "",
+    followers: Array.isArray(raw.followers) ? raw.followers : [],
+    assignedTo: raw.assignedTo || null,
   };
 }
 

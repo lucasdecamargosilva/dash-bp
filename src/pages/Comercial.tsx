@@ -302,6 +302,19 @@ const Comercial = () => {
     });
   }, [refreshKey, dateRange]);
 
+  // GHL users map (id -> name) for closers
+  const GHL_USERS: Record<string, string> = {
+    "vzPEBQaqgZw6Z2AhUqGQ": "Aline Autoral",
+    "HLq1ZteZT3ov44XFhCcQ": "Andre Lima",
+    "8MloR8VTt2BlQCvisQOS": "Felipe Caon",
+    "hO9WG11u8CN6nnzFxZuT": "Fernanda Capella",
+    "iP8qyqGLlIvw74rr1vvE": "Marcelo Oda",
+    "DOaQWahn91t5DiJrpQdF": "Raphael Acioli",
+    "9oq3gqfnwfVqxhX42eje": "Thiago Canina",
+    "F7v0GiBvJvPVNotI7Sl9": "Thiago Sacramento",
+    "P8SRDXzyajdPYrPfle4T": "Vitoria Cloud",
+  };
+
   // Current month from dateRange (for simulador de metas)
   const currentMes = useMemo(() => {
     if (dateRange?.from) {
@@ -630,13 +643,69 @@ const Comercial = () => {
 
                 {/* Summary Cards - Vendas */}
                 {section === "vendas" && (
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 animate-fade-up delay-2">
-                    <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                    <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
-                    <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                    <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 animate-fade-up delay-2">
+                      <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
+                      <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
+                      <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                      <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
+                      <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
+                    </div>
+
+                    {/* Performance dos Closers */}
+                    {ghlData?.closers && ghlData.closers.length > 0 && (
+                      <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi overflow-hidden animate-fade-up delay-3">
+                        <div className="px-5 py-4 border-b border-steel-100 dark:border-border">
+                          <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance dos Closers</h3>
+                          <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Medido pelo campo Seguidores da oportunidade no GHL</p>
+                        </div>
+                        <div className="overflow-x-auto bp-scroll">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
+                                <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">#</th>
+                                <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Closer</th>
+                                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Reunioes Realizadas</th>
+                                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Propostas</th>
+                                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Vendas</th>
+                                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Faturamento</th>
+                                <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Conv. Reun→Venda</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ghlData.closers
+                                .sort((a, b) => b.faturamento - a.faturamento || b.vendas - a.vendas || b.reunioesRealizadas - a.reunioesRealizadas)
+                                .map((c, i) => {
+                                  const name = GHL_USERS[c.userId] || c.userId.slice(0, 10);
+                                  const convRV = c.reunioesRealizadas > 0 ? (c.vendas / c.reunioesRealizadas) * 100 : 0;
+                                  return (
+                                    <tr key={c.userId} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors">
+                                      <td className="px-4 py-3 font-body text-sm text-steel-400">{i === 0 && c.vendas > 0 ? <Trophy className="h-4 w-4 text-amber-500" /> : i + 1}</td>
+                                      <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">{name}</td>
+                                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.reunioesRealizadas}</td>
+                                      <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.propostas}</td>
+                                      <td className="px-4 py-3 text-right font-body text-sm font-bold text-navy-900 dark:text-foreground tabular-nums">{c.vendas}</td>
+                                      <td className="px-4 py-3 text-right font-body text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                        {c.faturamento > 0 ? formatCurrency(c.faturamento) : <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        {c.reunioesRealizadas > 0 ? (
+                                          <span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded",
+                                            convRV >= 30 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                            convRV >= 10 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                            "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground"
+                                          )}>{convRV.toFixed(1)}%</span>
+                                        ) : <span className="text-steel-300 dark:text-muted-foreground/30 text-[10px]">-</span>}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Summary Cards - Total Geral */}

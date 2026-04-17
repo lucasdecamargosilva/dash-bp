@@ -134,6 +134,22 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, _config?: G
       }))
       .sort((a: VendaFechada, b: VendaFechada) => b.monetaryValue - a.monetaryValue);
 
+    // Closers performance — by "followers" field
+    const closerMap = new Map<string, { reunioesRealizadas: number; propostas: number; vendas: number; faturamento: number }>();
+    for (const opp of opps) {
+      const followers: string[] = Array.isArray(opp.followers) ? opp.followers : [];
+      for (const fid of followers) {
+        if (!closerMap.has(fid)) closerMap.set(fid, { reunioesRealizadas: 0, propostas: 0, vendas: 0, faturamento: 0 });
+        const c = closerMap.get(fid)!;
+        const value = parseFloat(opp.monetary_value) || 0;
+        // Reuniao realizada + all subsequent (Venda counts as having a Reuniao before)
+        if (opp.stage === "Reuniao Realizada" || opp.stage === "Proposta em Analise" || opp.stage === "Venda Fechada") c.reunioesRealizadas++;
+        if (opp.stage === "Proposta em Analise" || opp.stage === "Venda Fechada") c.propostas++;
+        if (opp.stage === "Venda Fechada") { c.vendas++; c.faturamento += value; }
+      }
+    }
+    const closers: any[] = Array.from(closerMap.entries()).map(([userId, stats]) => ({ userId, ...stats }));
+
     return {
       byCanal: Array.from(canalMap.values()).sort((a, b) => b.total - a.total),
       byPessoa: Array.from(pessoaMap.values()).sort((a, b) => b.total - a.total),
@@ -141,6 +157,7 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, _config?: G
       totals,
       totalOpportunities: opps.length,
       vendas,
+      closers,
     };
   } catch (err) {
     console.error("[GHL Cache] Error:", err);
