@@ -662,7 +662,7 @@ const Comercial = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {ghlData.byCanalPessoa
                         .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal" && c.pessoa && c.pessoa !== "Sem pessoa")
-                        .sort((a, b) => b.total - a.total)
+                        .sort((a, b) => a.canal.localeCompare(b.canal) || a.pessoa.localeCompare(b.pessoa))
                         .map((c, i) => {
                           const canalLabel = `${c.canal} | ${c.pessoa}`;
                           const raw = [c.contato, c.msgEnviada, c.conexao, c.whatsappObtido, c.reuniaoAgendada, c.reuniaoRealizada, c.propostaEmAnalise, c.vendaFechada];
