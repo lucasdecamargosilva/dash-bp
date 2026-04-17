@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 
 interface WeeklySalesPipelineData {
   id: number;
@@ -13,8 +14,11 @@ interface WeeklySalesPipelineData {
 }
 
 export const useWeeklySalesPipelineData = (selectedMonth: string, selectedWeek: number, enabled: boolean = true) => {
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
   return useQuery({
-    queryKey: ["weekly-sales-pipeline", selectedMonth, selectedWeek],
+    queryKey: ["weekly-sales-pipeline", selectedMonth, selectedWeek, locationId],
     enabled,
     queryFn: async () => {
       // Parse selected month (format: "2025-10")
@@ -57,6 +61,7 @@ export const useWeeklySalesPipelineData = (selectedMonth: string, selectedWeek: 
           .select("*")
           .eq("data_inicio", dataInicio)
           .eq("data_fim", dataFim)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -65,6 +70,7 @@ export const useWeeklySalesPipelineData = (selectedMonth: string, selectedWeek: 
           .select("*")
           .eq("data_inicio", dataInicio)
           .eq("data_fim", dataFim)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -73,6 +79,7 @@ export const useWeeklySalesPipelineData = (selectedMonth: string, selectedWeek: 
           .select("*")
           .eq("data_inicio", dataInicio)
           .eq("data_fim", dataFim)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),

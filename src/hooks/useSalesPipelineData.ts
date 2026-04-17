@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
+import { useTenant } from "@/context/TenantContext";
 
 interface SalesPipelineData {
   id: number;
@@ -16,13 +17,14 @@ interface DateFilter {
 }
 
 // Hook para buscar dados da tabela pipeline_elyano_high_profile
-const useHighProfileData = (dateFilter?: DateFilter) => {
+const useHighProfileData = (dateFilter?: DateFilter, locationId?: string) => {
   return useQuery({
-    queryKey: ["sales-pipeline-high-profile", dateFilter],
+    queryKey: ["sales-pipeline-high-profile", dateFilter, locationId],
     queryFn: async () => {
       let query = supabase
         .from("pipeline_elyano_high_profile")
         .select("*")
+        .eq("location_id", locationId ?? "")
         .order("created_at", { ascending: false });
 
       if (dateFilter?.startDate) {
@@ -42,13 +44,14 @@ const useHighProfileData = (dateFilter?: DateFilter) => {
 };
 
 // Hook para buscar dados da tabela pipeline_elyano_higher
-const useHigherData = (dateFilter?: DateFilter) => {
+const useHigherData = (dateFilter?: DateFilter, locationId?: string) => {
   return useQuery({
-    queryKey: ["sales-pipeline-higher", dateFilter],
+    queryKey: ["sales-pipeline-higher", dateFilter, locationId],
     queryFn: async () => {
       let query = supabase
         .from("pipeline_elyano_higher")
         .select("*")
+        .eq("location_id", locationId ?? "")
         .order("created_at", { ascending: false });
 
       if (dateFilter?.startDate) {
@@ -68,13 +71,14 @@ const useHigherData = (dateFilter?: DateFilter) => {
 };
 
 // Hook para buscar dados da tabela pipeline_elyano_high_one
-const useHighOneData = (dateFilter?: DateFilter) => {
+const useHighOneData = (dateFilter?: DateFilter, locationId?: string) => {
   return useQuery({
-    queryKey: ["sales-pipeline-high-one", dateFilter],
+    queryKey: ["sales-pipeline-high-one", dateFilter, locationId],
     queryFn: async () => {
       let query = supabase
         .from("pipeline_elyano_high_one")
         .select("*")
+        .eq("location_id", locationId ?? "")
         .order("created_at", { ascending: false });
 
       if (dateFilter?.startDate) {
@@ -95,9 +99,12 @@ const useHighOneData = (dateFilter?: DateFilter) => {
 
 // Hook principal que combina os dados de todas as tabelas
 export const useSalesPipelineMetrics = (dateFilter?: DateFilter) => {
-  const { data: highProfileData, isLoading: isLoadingHighProfile, error: errorHighProfile } = useHighProfileData(dateFilter);
-  const { data: higherData, isLoading: isLoadingHigher, error: errorHigher } = useHigherData(dateFilter);
-  const { data: highOneData, isLoading: isLoadingHighOne, error: errorHighOne } = useHighOneData(dateFilter);
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
+  const { data: highProfileData, isLoading: isLoadingHighProfile, error: errorHighProfile } = useHighProfileData(dateFilter, locationId);
+  const { data: higherData, isLoading: isLoadingHigher, error: errorHigher } = useHigherData(dateFilter, locationId);
+  const { data: highOneData, isLoading: isLoadingHighOne, error: errorHighOne } = useHighOneData(dateFilter, locationId);
 
   const isLoading = isLoadingHighProfile || isLoadingHigher || isLoadingHighOne;
   const error = errorHighProfile || errorHigher || errorHighOne;

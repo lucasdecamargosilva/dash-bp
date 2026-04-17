@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 
 interface WeeklySalesElamData {
   id: number;
@@ -17,8 +18,11 @@ export const useWeeklySalesElamData = (
   selectedWeek: number,
   enabled: boolean = true
 ) => {
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
   return useQuery({
-    queryKey: ["weekly-sales-elam", selectedMonth, selectedWeek],
+    queryKey: ["weekly-sales-elam", selectedMonth, selectedWeek, locationId],
     enabled,
     queryFn: async () => {
       const [year, month] = selectedMonth.split("-");
@@ -57,6 +61,7 @@ export const useWeeklySalesElamData = (
         .select("*")
         .eq("data_inicio", dataInicio)
         .eq("data_fim", dataFim)
+        .eq("location_id", locationId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

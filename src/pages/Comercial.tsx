@@ -179,7 +179,7 @@ function PacingChart({ diarioData, meta, daysInMonth }: { diarioData: DiarioEntr
 }
 
 // ---- Consultor Input Form ----
-function ConsultorInput({ consultor, mes, onSaved }: { consultor: Consultor; mes: string; onSaved: () => void }) {
+function ConsultorInput({ consultor, mes, locationId, onSaved }: { consultor: Consultor; mes: string; locationId: string; onSaved: () => void }) {
   const today = new Date().toISOString().split('T')[0];
   const [data, setData] = useState(today);
   const [leads, setLeads] = useState("");
@@ -196,6 +196,7 @@ function ConsultorInput({ consultor, mes, onSaved }: { consultor: Consultor; mes
       const { error } = await (supabase as any).from('comercial_diario').upsert({
         consultor_id: consultor.id,
         data,
+        location_id: locationId,
         leads_novos: parseInt(leads) || 0,
         conexoes: parseInt(conexoes) || 0,
         reunioes_agendadas: parseInt(reunioesAgendadas) || 0,
@@ -261,6 +262,7 @@ function ConsultorInput({ consultor, mes, onSaved }: { consultor: Consultor; mes
 // ---- Main Page ----
 const Comercial = () => {
   const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
   const [section, setSection] = useState<"pre_venda" | "vendas" | "total">("pre_venda");
   const [activeTab, setActiveTab] = useState("geral");
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -283,11 +285,11 @@ const Comercial = () => {
   useEffect(() => {
     // Load only configs for current month
     const curMonth = dateRange?.from ? `${dateRange.from.getFullYear()}-${String(dateRange.from.getMonth() + 1).padStart(2, "0")}` : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-    (supabase as any).from("canal_config").select("*").eq("mes", curMonth).order("canal").then(({ data }: any) => {
+    (supabase as any).from("canal_config").select("*").eq("mes", curMonth).eq("location_id", locationId).order("canal").then(({ data }: any) => {
       setCanalConfigs(data || []);
     });
     // Load ALL unique canal+pessoa from history (no date filter)
-    (supabase as any).from("ghl_pipeline_opportunities").select("source,pessoa").then(({ data }: any) => {
+    (supabase as any).from("ghl_pipeline_opportunities").select("source,pessoa").eq("location_id", locationId).then(({ data }: any) => {
       if (!data) return;
       const seen = new Set<string>();
       const unique: { canal: string; pessoa: string }[] = [];
@@ -351,9 +353,9 @@ const Comercial = () => {
     async function load() {
       setLoading(true);
       const [cRes, mRes, dRes] = await Promise.all([
-        (supabase as any).from('comercial_consultores').select('*').eq('ativo', true).order('nome'),
-        (supabase as any).from('comercial_metas').select('*').eq('mes', mes).single(),
-        (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-30`).order('data'),
+        (supabase as any).from('comercial_consultores').select('*').eq('ativo', true).eq('location_id', locationId).order('nome'),
+        (supabase as any).from('comercial_metas').select('*').eq('mes', mes).eq('location_id', locationId).single(),
+        (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-30`).eq('location_id', locationId).order('data'),
       ]);
       setConsultores(cRes.data || []);
       setMetaMensal(mRes.data || null);
@@ -878,6 +880,7 @@ const Comercial = () => {
                 ghlCanais={ghlData?.byCanalPessoa || []}
                 allCanaisHistorico={allCanaisHistorico}
                 canalConfigs={canalConfigs}
+                locationId={locationId}
                 onSaved={() => setRefreshKey(k => k + 1)}
               />
             )}
@@ -890,8 +893,8 @@ const Comercial = () => {
 };
 
 // ---- Config Panel ----
-function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, allCanaisHistorico, onSaved }: {
-  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; allCanaisHistorico: { canal: string; pessoa: string }[]; onSaved: () => void;
+function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, allCanaisHistorico, locationId, onSaved }: {
+  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; allCanaisHistorico: { canal: string; pessoa: string }[]; locationId: string; onSaved: () => void;
 }) {
   // Canal config
   const [editingCanal, setEditingCanal] = useState<string | null>(null);
@@ -914,6 +917,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
       const data = {
         canal,
         mes,
+        location_id: locationId,
         responsavel: canalForm.responsavel,
         setor: canalForm.setor,
         pct_meta: parseFloat(canalForm.pct_meta) || 0,
@@ -1019,6 +1023,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
     try {
       const insertData: any = {
         nome: novoNome.trim(),
+        location_id: locationId,
         meta_leads: parseInt(novoMetaLeads) || 0,
         meta_agendamentos: parseInt(novoMetaAg) || 0,
         meta_vendas: parseInt(novoMetaVendas) || 0,
@@ -1085,6 +1090,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
     try {
       const { error } = await (supabase as any).from('comercial_metas').upsert({
         mes,
+        location_id: locationId,
         meta_leads: finalMetas.contatos,
         meta_agendamentos: finalMetas.agendamentos,
         meta_vendas: parseInt(mVendas) || 0,

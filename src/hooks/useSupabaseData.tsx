@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useTenant } from '@/context/TenantContext';
 
 export interface SupabaseClient {
   id: string;
@@ -46,6 +47,8 @@ export interface MonthlyData {
 
 export function useSupabaseData() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
   const [clients, setClients] = useState<SupabaseClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +68,8 @@ export function useSupabaseData() {
       // Fetch clients only (no complex joins to avoid type issues)
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('*');
+        .select('*')
+        .eq('location_id', locationId);
 
       if (clientsError) throw clientsError;
 
@@ -104,7 +108,8 @@ export function useSupabaseData() {
       const { data, error } = await supabase
         .from('clients')
         .insert({
-          name: clientData.name
+          name: clientData.name,
+          location_id: locationId
         })
         .select()
         .single();
@@ -242,7 +247,7 @@ export function useSupabaseData() {
 
   useEffect(() => {
     fetchClients();
-  }, [user]);
+  }, [user, locationId]);
 
   return {
     clients,

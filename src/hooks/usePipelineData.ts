@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { z } from "zod";
+import { useTenant } from "@/context/TenantContext";
 
 const ClientSchema = z.enum(['Elyano', 'Elam Lima', 'PR1ME ROI']);
 
@@ -36,8 +37,11 @@ interface DateFilter {
 }
 
 export const usePipelineData = (cliente: string, dateFilter?: DateFilter) => {
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
   return useQuery({
-    queryKey: ["pipeline-data", cliente, dateFilter],
+    queryKey: ["pipeline-data", cliente, dateFilter, locationId],
     queryFn: async () => {
       try {
         // Validate inputs
@@ -54,20 +58,20 @@ export const usePipelineData = (cliente: string, dateFilter?: DateFilter) => {
 
         const tableName = tableMap[validatedClient];
         let query;
-        
+
         // Create query based on table name
         switch (tableName) {
           case 'pipeline_prospec_elyano':
-            query = supabase.from('pipeline_prospec_elyano').select("*");
+            query = supabase.from('pipeline_prospec_elyano').select("*").eq('location_id', locationId);
             break;
           case 'pipeline_prospec_elam':
-            query = supabase.from('pipeline_prospec_elam').select("*");
+            query = supabase.from('pipeline_prospec_elam').select("*").eq('location_id', locationId);
             break;
           case 'pipeline_prospec_prime':
-            query = supabase.from('pipeline_prospec_prime').select("*");
+            query = supabase.from('pipeline_prospec_prime').select("*").eq('location_id', locationId);
             break;
           default:
-            query = supabase.from('pipeline_prospec_elyano').select("*");
+            query = supabase.from('pipeline_prospec_elyano').select("*").eq('location_id', locationId);
         }
 
         // Apply date filters if provided

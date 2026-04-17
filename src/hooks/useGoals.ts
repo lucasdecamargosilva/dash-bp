@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/context/TenantContext";
 
 export interface PipelineGoals {
   id: string;
@@ -13,14 +14,17 @@ export interface PipelineGoals {
 export const useGoals = (clientName: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
 
   const { data: goals, isLoading } = useQuery({
-    queryKey: ["goals", clientName],
+    queryKey: ["goals", clientName, locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pipeline_goals")
         .select("*")
         .eq("client_name", clientName)
+        .eq("location_id", locationId)
         .maybeSingle();
 
       if (error) throw error;
@@ -34,6 +38,7 @@ export const useGoals = (clientName: string) => {
         .from("pipeline_goals")
         .update(newGoals)
         .eq("client_name", clientName)
+        .eq("location_id", locationId)
         .select()
         .maybeSingle();
 
@@ -41,7 +46,7 @@ export const useGoals = (clientName: string) => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals", clientName] });
+      queryClient.invalidateQueries({ queryKey: ["goals", clientName, locationId] });
       toast({
         title: "Metas atualizadas",
         description: "As metas foram atualizadas com sucesso.",

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 
 interface MonthlySalesPrimeData {
   id: number;
@@ -11,12 +12,15 @@ interface MonthlySalesPrimeData {
 }
 
 export const useMonthlySalesPrimeData = (selectedMonth: string, enabled: boolean = true) => {
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
   return useQuery({
-    queryKey: ["monthly-sales-prime", selectedMonth],
+    queryKey: ["monthly-sales-prime", selectedMonth, locationId],
     enabled,
     queryFn: async () => {
       const [year, month] = selectedMonth.split("-");
-      
+
       const firstDay = `${year}-${month}-01`;
       const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
       const lastDayStr = `${year}-${month}-${lastDay}`;
@@ -29,6 +33,7 @@ export const useMonthlySalesPrimeData = (selectedMonth: string, enabled: boolean
           .lte("created_at", `${lastDayStr}T23:59:59.999Z`)
           .is("data_inicio", null)
           .is("data_fim", null)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -39,6 +44,7 @@ export const useMonthlySalesPrimeData = (selectedMonth: string, enabled: boolean
           .lte("created_at", `${lastDayStr}T23:59:59.999Z`)
           .is("data_inicio", null)
           .is("data_fim", null)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -49,6 +55,7 @@ export const useMonthlySalesPrimeData = (selectedMonth: string, enabled: boolean
           .lte("created_at", `${lastDayStr}T23:59:59.999Z`)
           .is("data_inicio", null)
           .is("data_fim", null)
+          .eq("location_id", locationId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  listClients, 
-  listChannels, 
-  getMonthlyMetrics, 
+import { useTenant } from '@/context/TenantContext';
+import {
+  listClients,
+  listChannels,
+  getMonthlyMetrics,
   getAggregatedMetricsAllMonths,
   getFunnelForPeriod,
   upsertMetrics,
@@ -112,6 +113,9 @@ function generateMonths(): { label: string; value: string }[] {
 const MONTHS_2025 = generateMonths();
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId;
+
   const [clients, setClients] = useState<ClientData[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [selectedPeriod, setSelectedPeriod] = useState<string>(getCurrentMonth());
@@ -137,8 +141,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Load initial data
   useEffect(() => {
-    loadClients();
-  }, []);
+    if (locationId) loadClients();
+  }, [locationId]);
 
   // Refresh data when filters change
   useEffect(() => {
@@ -150,7 +154,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const clientsData = await listClients();
+      const clientsData = await listClients(locationId);
       
       // Convert to ClientData format - get real data from Supabase
       const clientsWithMetadata: ClientData[] = clientsData.map(client => ({
@@ -201,20 +205,20 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       if (isAllMonthsPeriod) {
         // Load aggregated data for all months
-        channelsData = await getAggregatedMetricsAllMonths(clientId);
-        funnelData = await getFunnelForPeriod(clientId);
+        channelsData = await getAggregatedMetricsAllMonths(clientId, locationId);
+        funnelData = await getFunnelForPeriod(clientId, locationId);
       } else {
         // Load data for specific month
-        channelsData = await getMonthlyMetrics(clientId, selectedPeriod);
-        funnelData = await getFunnelForPeriod(clientId, selectedPeriod);
-        
+        channelsData = await getMonthlyMetrics(clientId, selectedPeriod, locationId);
+        funnelData = await getFunnelForPeriod(clientId, locationId, selectedPeriod);
+
         // Load previous month data for comparison (only for specific months)
         const currentDate = new Date(selectedPeriod + '-01');
         const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const previousPeriod = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
-        
+
         try {
-          previousFunnelData = await getFunnelForPeriod(clientId, previousPeriod);
+          previousFunnelData = await getFunnelForPeriod(clientId, locationId, previousPeriod);
         } catch (prevErr) {
           console.warn('Previous month data not available:', prevErr);
         }
@@ -254,11 +258,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
         try {
           if (isAllMonthsPeriod) {
-            clientChannels = await getAggregatedMetricsAllMonths(client.id);
-            clientFunnel = await getFunnelForPeriod(client.id);
+            clientChannels = await getAggregatedMetricsAllMonths(client.id, locationId);
+            clientFunnel = await getFunnelForPeriod(client.id, locationId);
           } else {
-            clientChannels = await getMonthlyMetrics(client.id, selectedPeriod);
-            clientFunnel = await getFunnelForPeriod(client.id, selectedPeriod);
+            clientChannels = await getMonthlyMetrics(client.id, selectedPeriod, locationId);
+            clientFunnel = await getFunnelForPeriod(client.id, locationId, selectedPeriod);
           }
         } catch (clientError) {
           console.warn(`Error loading data for client ${client.id}:`, clientError);
@@ -316,13 +320,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const addChannelToClient = async (clientId: string, channelData: any) => {
     try {
       // Ensure channel exists
-      const channelId = await ensureChannelByName(channelData.name);
-      
+      const channelId = await ensureChannelByName(channelData.name, locationId);
+
       // Create metrics record
-      const metricsData: AcquisitionMetrics = {
+      const metricsData: AcquisitionMetrics & { location_id: string } = {
         client_id: clientId,
         channel_id: channelId,
         competencia: channelData.month,
+        location_id: locationId,
         contatos: channelData.contacts || 0,
         leads: channelData.qualified_leads || 0,
         reunioes: channelData.meetings || 0,
@@ -373,10 +378,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const dbField = fieldMap[field] || field;
 
       // Create updated metrics
-      const updatedMetrics: AcquisitionMetrics = {
+      const updatedMetrics: AcquisitionMetrics & { location_id: string } = {
         client_id: selectedClient,
         channel_id: channelId,
         competencia: selectedPeriod,
+        location_id: locationId,
         contatos: dbField === 'contatos' ? value : channelMetrics.contatos,
         leads: dbField === 'leads' ? value : channelMetrics.leads,
         reunioes: dbField === 'reunioes' ? value : channelMetrics.reunioes,
@@ -397,7 +403,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const deleteChannel = async (clientId: string, channelId: string) => {
     try {
-      await deleteChannelMetrics(clientId, channelId);
+      await deleteChannelMetrics(clientId, channelId, locationId);
       await refreshData();
       toast.success('Canal excluído com sucesso!');
     } catch (err) {
@@ -409,7 +415,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const getAvailableChannelsForClient = async (clientId: string, competencia: string): Promise<Channel[]> => {
     try {
-      return await getAvailableChannels(clientId, competencia);
+      return await getAvailableChannels(clientId, competencia, locationId);
     } catch (err) {
       console.error('Error getting available channels:', err);
       return [];
@@ -434,7 +440,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           responsible: clientData.responsible,
           project_type: clientData.project_type,
           status: clientData.status || 'active',
-          user_id: user?.id
+          user_id: user?.id,
+          location_id: locationId
         })
         .select()
         .single();

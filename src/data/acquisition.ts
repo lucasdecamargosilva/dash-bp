@@ -51,64 +51,68 @@ export type ChannelWithMetrics = {
 };
 
 // Ensure channel exists by name, create if doesn't exist
-export async function ensureChannelByName(name: string): Promise<string> {
+export async function ensureChannelByName(name: string, locationId: string): Promise<string> {
   // First try to find existing channel
   const { data: existing, error: findError } = await supabase
     .from('channels')
     .select('id')
     .eq('name', name)
+    .eq('location_id', locationId)
     .maybeSingle();
-  
+
   if (findError) throw findError;
-  
+
   if (existing) {
     return existing.id;
   }
-  
+
   // Create new channel
   const { data: newChannel, error: createError } = await supabase
     .from('channels')
-    .insert({ name })
+    .insert({ name, location_id: locationId })
     .select('id')
     .single();
-  
+
   if (createError) throw createError;
-  
+
   return newChannel.id;
 }
 
 // List all channels
-export async function listChannels(): Promise<Channel[]> {
+export async function listChannels(locationId: string): Promise<Channel[]> {
   const { data, error } = await supabase
     .from('channels')
     .select('*')
+    .eq('location_id', locationId)
     .order('name');
-  
+
   if (error) throw error;
-  
+
   return data || [];
 }
 
 // List all clients
-export async function listClients(): Promise<Client[]> {
+export async function listClients(locationId: string): Promise<Client[]> {
   const { data, error } = await supabase
     .from('clients')
     .select('*')
+    .eq('location_id', locationId)
     .order('name');
-  
+
   if (error) throw error;
-  
+
   return data || [];
 }
 
 // Upsert metrics by client_id + channel_id + competencia
-export async function upsertMetrics(payload: AcquisitionMetrics): Promise<AcquisitionMetrics> {
+export async function upsertMetrics(payload: AcquisitionMetrics & { location_id: string }): Promise<AcquisitionMetrics> {
   const { data, error } = await supabase
     .from('acquisition_channel_metrics')
     .upsert({
       client_id: payload.client_id,
       channel_id: payload.channel_id,
       competencia: payload.competencia,
+      location_id: payload.location_id,
       contatos: payload.contatos || 0,
       leads: payload.leads || 0,
       reunioes: payload.reunioes || 0,
@@ -128,30 +132,32 @@ export async function upsertMetrics(payload: AcquisitionMetrics): Promise<Acquis
 }
 
 // Delete metrics
-export async function deleteMetrics(clientId: string, channelId: string, competencia: string): Promise<void> {
+export async function deleteMetrics(clientId: string, channelId: string, competencia: string, locationId: string): Promise<void> {
   const { error } = await supabase
     .from('acquisition_channel_metrics')
     .delete()
     .eq('client_id', clientId)
     .eq('channel_id', channelId)
-    .eq('competencia', competencia);
+    .eq('competencia', competencia)
+    .eq('location_id', locationId);
 
   if (error) throw error;
 }
 
 // Delete all metrics for a channel across all months for a client
-export async function deleteChannelMetrics(clientId: string, channelId: string): Promise<void> {
+export async function deleteChannelMetrics(clientId: string, channelId: string, locationId: string): Promise<void> {
   const { error } = await supabase
     .from('acquisition_channel_metrics')
     .delete()
     .eq('client_id', clientId)
-    .eq('channel_id', channelId);
+    .eq('channel_id', channelId)
+    .eq('location_id', locationId);
 
   if (error) throw error;
 }
 
 // Get monthly metrics for specific client and month
-export async function getMonthlyMetrics(clientId: string, competencia: string): Promise<ChannelWithMetrics[]> {
+export async function getMonthlyMetrics(clientId: string, competencia: string, locationId: string): Promise<ChannelWithMetrics[]> {
   const { data, error } = await supabase
     .from('acquisition_channel_metrics')
     .select(`
@@ -160,6 +166,7 @@ export async function getMonthlyMetrics(clientId: string, competencia: string): 
     `)
     .eq('client_id', clientId)
     .eq('competencia', competencia)
+    .eq('location_id', locationId)
     .order('channels(name)');
 
   if (error) throw error;
@@ -178,7 +185,7 @@ export async function getMonthlyMetrics(clientId: string, competencia: string): 
 }
 
 // Get aggregated metrics for all months for a client
-export async function getAggregatedMetricsAllMonths(clientId: string): Promise<ChannelWithMetrics[]> {
+export async function getAggregatedMetricsAllMonths(clientId: string, locationId: string): Promise<ChannelWithMetrics[]> {
   const { data, error } = await supabase
     .from('acquisition_channel_metrics')
     .select(`
@@ -191,7 +198,8 @@ export async function getAggregatedMetricsAllMonths(clientId: string): Promise<C
       vendas,
       faturamento
     `)
-    .eq('client_id', clientId);
+    .eq('client_id', clientId)
+    .eq('location_id', locationId);
 
   if (error) throw error;
 
@@ -235,7 +243,7 @@ export async function getAggregatedMetricsAllMonths(clientId: string): Promise<C
 }
 
 // Get funnel totals for period
-export async function getFunnelForPeriod(clientId: string, competencia?: string): Promise<{
+export async function getFunnelForPeriod(clientId: string, locationId: string, competencia?: string): Promise<{
   contatos: number;
   leads: number;
   reunioes: number;
@@ -246,7 +254,8 @@ export async function getFunnelForPeriod(clientId: string, competencia?: string)
   let query = supabase
     .from('acquisition_channel_metrics')
     .select('contatos, leads, reunioes, propostas, vendas, faturamento')
-    .eq('client_id', clientId);
+    .eq('client_id', clientId)
+    .eq('location_id', locationId);
 
   if (competencia) {
     query = query.eq('competencia', competencia);
@@ -277,7 +286,7 @@ export async function getFunnelForPeriod(clientId: string, competencia?: string)
 }
 
 // Get historical data for charts (only months with actual data)
-export async function getHistoricalDataForClient(clientId: string): Promise<{
+export async function getHistoricalDataForClient(clientId: string, locationId: string): Promise<{
   month: string;
   revenue: number;
   leads: number;
@@ -287,6 +296,7 @@ export async function getHistoricalDataForClient(clientId: string): Promise<{
     .from('acquisition_channel_metrics')
     .select('competencia, faturamento, leads, vendas')
     .eq('client_id', clientId)
+    .eq('location_id', locationId)
     .order('competencia');
 
   if (error) throw error;
@@ -321,16 +331,17 @@ export async function getHistoricalDataForClient(clientId: string): Promise<{
 }
 
 // Get available channels for a client/month (excluding already used ones)
-export async function getAvailableChannels(clientId: string, competencia: string): Promise<Channel[]> {
+export async function getAvailableChannels(clientId: string, competencia: string, locationId: string): Promise<Channel[]> {
   // Get all channels
-  const allChannels = await listChannels();
-  
+  const allChannels = await listChannels(locationId);
+
   // Get channels already used for this client/month
   const { data: usedChannels, error } = await supabase
     .from('acquisition_channel_metrics')
     .select('channel_id')
     .eq('client_id', clientId)
-    .eq('competencia', competencia);
+    .eq('competencia', competencia)
+    .eq('location_id', locationId);
 
   if (error) throw error;
 
