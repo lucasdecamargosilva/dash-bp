@@ -37,27 +37,37 @@ function addToMetrics(m: ChannelMetrics, stage: string, monetaryValue: number) {
 
 /**
  * Read pipeline data from Supabase cache.
- * Supports multi-tenant via tenantId filter on ghl_pipeline_opportunities.
+ * Supports multi-tenant via location_id filter on ghl_pipeline_opportunities/summary.
  */
-export async function getGHLPipelineFromCache(dateRange?: DateRange, _config?: GHLConfig): Promise<GHLSummary> {
+export async function getGHLPipelineFromCache(dateRange?: DateRange, config?: GHLConfig): Promise<GHLSummary> {
+  const locationId = config?.locationId;
+
   try {
     // If no date range, use pre-computed summary for "all"
     if (!dateRange?.from) {
-      const { data: rows, error } = await (supabase as any)
+      let summaryQuery = (supabase as any)
         .from("ghl_pipeline_summary")
         .select("*")
         .eq("month", "all");
+
+      if (locationId) summaryQuery = summaryQuery.eq("location_id", locationId);
+
+      const { data: rows, error } = await summaryQuery;
 
       if (error || !rows || rows.length === 0) {
         return fallbackEmpty();
       }
 
       // Also fetch individual vendas
-      const { data: vendasRows } = await (supabase as any)
+      let vendasQuery = (supabase as any)
         .from("ghl_pipeline_opportunities")
         .select("name,monetary_value,source,pessoa,last_stage_change_at,created_at")
         .eq("stage", "Venda Fechada")
         .order("monetary_value", { ascending: false });
+
+      if (locationId) vendasQuery = vendasQuery.eq("location_id", locationId);
+
+      const { data: vendasRows } = await vendasQuery;
 
       const vendas: VendaFechada[] = (vendasRows || []).map((o: any) => ({
         name: o.name || "",
@@ -83,6 +93,8 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, _config?: G
       .from("ghl_pipeline_opportunities")
       .select("*")
       .gte("last_stage_change_at", fromUTC.toISOString());
+
+    if (locationId) query = query.eq("location_id", locationId);
 
     if (dateRange.to) {
       const toBR = new Date(dateRange.to);
