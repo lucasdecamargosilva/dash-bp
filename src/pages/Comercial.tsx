@@ -653,16 +653,35 @@ const Comercial = () => {
                 )}
 
                 {/* Performance por Canal — Cards com responsavel e metas */}
-                {ghlData && ghlData.byCanalPessoa.length > 0 && (
+                {(ghlData || canalConfigs.length > 0) && (
                   <div className="animate-fade-up delay-2">
                     <div className="mb-4">
                       <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance por Canal + Pessoa</h3>
                       <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Resultados por canal+pessoa, responsavel e % da meta individual</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {ghlData.byCanalPessoa
-                        .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal" && c.pessoa && c.pessoa !== "Sem pessoa")
-                        .sort((a, b) => a.canal.localeCompare(b.canal) || a.pessoa.localeCompare(b.pessoa))
+                      {(() => {
+                        // Merge GHL data with canal configs for current month
+                        const mergedMap = new Map<string, any>();
+                        // Add GHL data first
+                        (ghlData?.byCanalPessoa || [])
+                          .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal" && c.pessoa && c.pessoa !== "Sem pessoa")
+                          .forEach(c => {
+                            const key = `${c.canal} | ${c.pessoa}`;
+                            mergedMap.set(key, c);
+                          });
+                        // Add configs that don't have GHL data yet (zeroed)
+                        canalConfigs.forEach((cc: any) => {
+                          const key = (cc.canal || "").trim();
+                          if (!key.includes(" | ") || key.includes("Sem canal") || key.includes("Sem pessoa")) return;
+                          if (!mergedMap.has(key)) {
+                            const [canal, pessoa] = key.split(" | ");
+                            mergedMap.set(key, { canal, pessoa, contato: 0, msgEnviada: 0, conexao: 0, whatsappObtido: 0, reuniaoAgendada: 0, reuniaoRealizada: 0, propostaEmAnalise: 0, vendaFechada: 0, faturamento: 0, total: 0 });
+                          }
+                        });
+                        return Array.from(mergedMap.values())
+                          .sort((a, b) => a.canal.localeCompare(b.canal) || a.pessoa.localeCompare(b.pessoa));
+                      })()
                         .map((c, i) => {
                           const canalLabel = `${c.canal} | ${c.pessoa}`;
                           const raw = [c.contato, c.msgEnviada, c.conexao, c.whatsappObtido, c.reuniaoAgendada, c.reuniaoRealizada, c.propostaEmAnalise, c.vendaFechada];
