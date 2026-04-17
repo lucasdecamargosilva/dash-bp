@@ -626,17 +626,18 @@ const Comercial = () => {
                 )}
 
                 {/* Performance por Canal — Cards com responsavel e metas */}
-                {ghlData && ghlData.byCanal.length > 0 && (
+                {ghlData && ghlData.byCanalPessoa.length > 0 && (
                   <div className="animate-fade-up delay-2">
                     <div className="mb-4">
-                      <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance por Canal</h3>
-                      <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Resultados por canal, responsavel e % da meta individual</p>
+                      <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Performance por Canal + Pessoa</h3>
+                      <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Resultados por canal+pessoa, responsavel e % da meta individual</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {ghlData.byCanal
+                      {ghlData.byCanalPessoa
                         .filter(c => c.total >= 3)
                         .sort((a, b) => b.total - a.total)
                         .map((c, i) => {
+                          const canalLabel = `${c.canal} | ${c.pessoa}`;
                           const raw = [c.contato, c.msgEnviada, c.conexao, c.whatsappObtido, c.reuniaoAgendada, c.reuniaoRealizada, c.propostaEmAnalise, c.vendaFechada];
                           let sum = 0;
                           const acc: number[] = [];
@@ -648,7 +649,7 @@ const Comercial = () => {
                           const hasVendas = vendas > 0;
 
                           // Canal config (responsavel + metas)
-                          const cfg = canalConfigs.find(cc => cc.canal === c.canal);
+                          const cfg = canalConfigs.find(cc => cc.canal === canalLabel);
                           const responsavel = cfg?.responsavel || "";
                           const cMeta = { leads: cfg?.meta_leads || 0, reunioes: cfg?.meta_reunioes || 0, vendas: cfg?.meta_vendas || 0, fat: cfg?.meta_faturamento || 0 };
                           const hasMeta = cMeta.leads > 0 || cMeta.vendas > 0;
@@ -669,7 +670,7 @@ const Comercial = () => {
                             )}>
                               {/* Header */}
                               <div className="flex items-center justify-between mb-1">
-                                <h4 className="text-sm font-body font-bold text-navy-900 dark:text-foreground">{c.canal}</h4>
+                                <h4 className="text-sm font-body font-bold text-navy-900 dark:text-foreground">{c.canal} <span className="text-steel-400 dark:text-muted-foreground font-normal">| {c.pessoa}</span></h4>
                                 {hasVendas && (
                                   <span className="text-[10px] font-body font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full">
                                     {vendas} {vendas === 1 ? "venda" : "vendas"}
@@ -833,7 +834,7 @@ const Comercial = () => {
                 consultores={consultores}
                 metaMensal={metaMensal}
                 mes={mes}
-                ghlCanais={ghlData?.byCanal || []}
+                ghlCanais={ghlData?.byCanalPessoa || []}
                 canalConfigs={canalConfigs}
                 onSaved={() => setRefreshKey(k => k + 1)}
               />
@@ -1176,9 +1177,12 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
             </thead>
             <tbody>
               {(() => {
-                // Get unique canals from GHL data + existing configs
+                // Get unique "Canal | Pessoa" combos from GHL data + existing configs
                 const allCanals = new Set<string>();
-                ghlCanais.filter((c: any) => c.total >= 3).forEach((c: any) => allCanals.add(c.canal));
+                ghlCanais.filter((c: any) => c.total >= 3).forEach((c: any) => {
+                  const key = c.pessoa ? `${c.canal} | ${c.pessoa}` : c.canal;
+                  allCanals.add(key);
+                });
                 canalConfigs.forEach((cc: any) => allCanals.add(cc.canal));
                 return Array.from(allCanals).sort().map(canal => {
                   const cfg = canalConfigs.find((cc: any) => cc.canal === canal);
