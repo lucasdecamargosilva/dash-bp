@@ -275,14 +275,38 @@ const Comercial = () => {
   });
 
   // Canal config
-  interface CanalConfig { id: number; canal: string; responsavel: string; setor: string; meta_leads: number; meta_reunioes: number; meta_vendas: number; meta_faturamento: number; }
+  interface CanalConfig { id: number; canal: string; responsavel: string; setor: string; pct_meta?: number; meta_leads: number; meta_reunioes: number; meta_vendas: number; meta_faturamento: number; }
   const [canalConfigs, setCanalConfigs] = useState<CanalConfig[]>([]);
+  const [allCanaisHistorico, setAllCanaisHistorico] = useState<{ canal: string; pessoa: string }[]>([]);
 
   useEffect(() => {
     (supabase as any).from("canal_config").select("*").order("canal").then(({ data }: any) => {
       setCanalConfigs(data || []);
     });
+    // Load ALL unique canal+pessoa from history (no date filter)
+    (supabase as any).from("ghl_pipeline_opportunities").select("source,pessoa").then(({ data }: any) => {
+      if (!data) return;
+      const seen = new Set<string>();
+      const unique: { canal: string; pessoa: string }[] = [];
+      for (const row of data) {
+        const canal = (row.source || "").trim();
+        const pessoa = (row.pessoa || "").trim();
+        if (!canal || canal === "Sem canal" || !pessoa || pessoa === "Sem pessoa") continue;
+        const key = `${canal}|${pessoa}`;
+        if (!seen.has(key)) { seen.add(key); unique.push({ canal, pessoa }); }
+      }
+      setAllCanaisHistorico(unique);
+    });
   }, [refreshKey]);
+
+  // Current month from dateRange (for simulador de metas)
+  const currentMes = useMemo(() => {
+    if (dateRange?.from) {
+      const d = dateRange.from;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+    return `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  }, [dateRange]);
 
   // GHL pipeline data
   const { data: ghlData, isLoading: ghlLoading } = useGHLData(dateRange);
@@ -303,7 +327,7 @@ const Comercial = () => {
     };
   }, [ghlData]);
 
-  const mes = "2026-04";
+  const mes = currentMes;
   const { currentDay, daysInMonth, pct: monthPct } = getMonthProgress();
 
   // Load data
@@ -835,6 +859,7 @@ const Comercial = () => {
                 metaMensal={metaMensal}
                 mes={mes}
                 ghlCanais={ghlData?.byCanalPessoa || []}
+                allCanaisHistorico={allCanaisHistorico}
                 canalConfigs={canalConfigs}
                 onSaved={() => setRefreshKey(k => k + 1)}
               />
@@ -848,8 +873,8 @@ const Comercial = () => {
 };
 
 // ---- Config Panel ----
-function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, onSaved }: {
-  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; onSaved: () => void;
+function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, allCanaisHistorico, onSaved }: {
+  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; allCanaisHistorico: { canal: string; pessoa: string }[]; onSaved: () => void;
 }) {
   // Canal config
   const [editingCanal, setEditingCanal] = useState<string | null>(null);
@@ -1177,18 +1202,17 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
             </thead>
             <tbody>
               {(() => {
-                // Get unique "Canal | Pessoa" combos from GHL data + existing configs
+                // Get ALL historical canal+pessoa combinations from database
                 const allCanals = new Set<string>();
-                ghlCanais.filter((c: any) => c.total >= 3).forEach((c: any) => {
-                  const canal = (c.canal || "").trim();
-                  const pessoa = (c.pessoa || "").trim();
-                  if (!canal || canal === "Sem canal") return;
-                  if (!pessoa || pessoa === "Sem pessoa") return;
-                  allCanals.add(`${canal} | ${pessoa}`);
+                allCanaisHistorico.forEach(c => {
+                  allCanals.add(`${c.canal} | ${c.pessoa}`);
                 });
+                // Also include any existing configs that ARE valid (canal | pessoa format)
                 canalConfigs.forEach((cc: any) => {
                   const key = (cc.canal || "").trim();
-                  if (key && !key.includes("Sem canal") && !key.endsWith("| ")) allCanals.add(key);
+                  if (key && key.includes(" | ") && !key.includes("Sem canal") && !key.includes("Sem pessoa")) {
+                    allCanals.add(key);
+                  }
                 });
                 return Array.from(allCanals).sort().map(canal => {
                   const cfg = canalConfigs.find((cc: any) => cc.canal === canal);
@@ -1242,9 +1266,22 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, on
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_vendas || <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{cfg?.meta_faturamento ? formatCurrency(cfg.meta_faturamento) : <span className="text-steel-300 dark:text-muted-foreground/30">-</span>}</td>
                       <td className="px-4 py-3 text-center">
-                        <Button variant="ghost" size="sm" onClick={() => startEditCanal(canal)} className="h-7 w-7 p-0 text-steel-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10 opacity-0 group-hover:opacity-100 transition-all">
-                          <Pencil className="h-3 w-3" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <Button variant="ghost" size="sm" onClick={() => startEditCanal(canal)} className="h-7 w-7 p-0 text-steel-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          {cfg && (
+                            <Button variant="ghost" size="sm" onClick={async () => {
+                              if (!window.confirm(`Excluir config do canal "${canal}"?`)) return;
+                              const { error } = await (supabase as any).from("canal_config").delete().eq("id", cfg.id);
+                              if (error) { toast.error("Erro ao excluir"); return; }
+                              toast.success("Config removida");
+                              onSaved();
+                            }} className="h-7 w-7 p-0 text-steel-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
