@@ -42,32 +42,29 @@ function addToMetrics(m: ChannelMetrics, stage: string, monetaryValue: number) {
 export async function getGHLPipelineFromCache(dateRange?: DateRange, config?: GHLConfig): Promise<GHLSummary> {
   const locationId = config?.locationId;
 
+  // SEGURANCA: se nao tem location configurada, nao retorna nada
+  if (!locationId) return fallbackEmpty();
+
   try {
     // If no date range, use pre-computed summary for "all"
     if (!dateRange?.from) {
-      let summaryQuery = (supabase as any)
+      const { data: rows, error } = await (supabase as any)
         .from("ghl_pipeline_summary")
         .select("*")
-        .eq("month", "all");
-
-      if (locationId) summaryQuery = summaryQuery.eq("location_id", locationId);
-
-      const { data: rows, error } = await summaryQuery;
+        .eq("month", "all")
+        .eq("location_id", locationId);
 
       if (error || !rows || rows.length === 0) {
         return fallbackEmpty();
       }
 
       // Also fetch individual vendas
-      let vendasQuery = (supabase as any)
+      const { data: vendasRows } = await (supabase as any)
         .from("ghl_pipeline_opportunities")
         .select("name,monetary_value,source,pessoa,last_stage_change_at,created_at")
         .eq("stage", "Venda Fechada")
+        .eq("location_id", locationId)
         .order("monetary_value", { ascending: false });
-
-      if (locationId) vendasQuery = vendasQuery.eq("location_id", locationId);
-
-      const { data: vendasRows } = await vendasQuery;
 
       const vendas: VendaFechada[] = (vendasRows || []).map((o: any) => ({
         name: o.name || "",
@@ -92,9 +89,8 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, config?: GH
     let query = (supabase as any)
       .from("ghl_pipeline_opportunities")
       .select("*")
+      .eq("location_id", locationId)
       .gte("last_stage_change_at", fromUTC.toISOString());
-
-    if (locationId) query = query.eq("location_id", locationId);
 
     if (dateRange.to) {
       const toBR = new Date(dateRange.to);

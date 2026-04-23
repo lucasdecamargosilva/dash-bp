@@ -104,13 +104,17 @@ function SummaryCard({ label, value, meta, icon: Icon, color, isCurrency }: {
         </p>
         <StatusBadge value={value} meta={meta} />
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1 gap-0.5">
-        <span className="text-[10px] font-body text-steel-400 dark:text-muted-foreground truncate">Meta: {isCurrency ? formatCurrency(meta) : meta.toLocaleString('pt-BR')}</span>
-        <span className="text-[10px] font-body text-steel-400 dark:text-muted-foreground truncate">Gap: {isCurrency ? formatCurrency(meta - value) : (meta - value).toLocaleString('pt-BR')}</span>
-      </div>
-      <div className="mt-2 h-1.5 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-500", pct >= 100 ? "bg-emerald-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${Math.min(pct, 100)}%` }} />
-      </div>
+      {meta > 0 && (
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1 gap-0.5">
+            <span className="text-[10px] font-body text-steel-400 dark:text-muted-foreground truncate">Meta: {isCurrency ? formatCurrency(meta) : meta.toLocaleString('pt-BR')}</span>
+            <span className={cn("text-[10px] font-body font-semibold", pct >= 100 ? "text-emerald-600 dark:text-emerald-400" : pct >= 70 ? "text-amber-600 dark:text-amber-400" : "text-red-500 dark:text-red-400")}>{pct.toFixed(0)}%</span>
+          </div>
+          <div className="mt-2 h-1.5 bg-steel-100 dark:bg-secondary rounded-full overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all duration-500", pct >= 100 ? "bg-emerald-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -546,12 +550,6 @@ const Comercial = () => {
               </div>
               <div className="flex items-center gap-3">
                 <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
-                <div className="bg-white dark:bg-card rounded-lg border border-steel-100 dark:border-border px-3 py-2">
-                  <p className="text-[9px] font-body font-semibold uppercase tracking-wider text-steel-400 dark:text-muted-foreground">Faturamento</p>
-                  <p className="text-lg font-display font-bold text-navy-900 dark:text-foreground tabular-nums">
-                    {formatFullCurrency(ghlTotals.faturamento)}
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -632,26 +630,23 @@ const Comercial = () => {
 
                 {/* Summary Cards - Pre Venda */}
                 {section === "pre_venda" && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 animate-fade-up delay-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 animate-fade-up delay-2">
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
-                    <SummaryCard label="Conexoes" value={ghlTotals.conexao} meta={0} icon={Link2} color="text-sky-700 dark:text-sky-300" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                    <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
                   </div>
                 )}
 
                 {/* Summary Cards - Vendas */}
                 {section === "vendas" && (
                   <>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 animate-fade-up delay-2">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up delay-2">
                       <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
                       <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
                       <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                       <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                      <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
                     </div>
 
                     {/* Performance dos Closers */}
@@ -712,14 +707,12 @@ const Comercial = () => {
 
                 {/* Summary Cards - Total Geral */}
                 {section === "total" && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 animate-fade-up delay-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 animate-fade-up delay-2">
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
-                    <SummaryCard label="Conexoes" value={ghlTotals.conexao} meta={0} icon={Link2} color="text-sky-700 dark:text-sky-300" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
-                    <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
                   </div>
                 )}
 
@@ -736,10 +729,11 @@ const Comercial = () => {
                         const mergedMap = new Map<string, any>();
                         // Add GHL data first
                         (ghlData?.byCanalPessoa || [])
-                          .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal" && c.pessoa && c.pessoa !== "Sem pessoa")
+                          .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal")
                           .forEach(c => {
-                            const key = `${c.canal} | ${c.pessoa}`;
-                            mergedMap.set(key, c);
+                            const pessoaLabel = c.pessoa || "Sem pessoa";
+                            const key = `${c.canal} | ${pessoaLabel}`;
+                            mergedMap.set(key, { ...c, pessoa: pessoaLabel });
                           });
                         // Add configs that don't have GHL data yet (zeroed)
                         canalConfigs.forEach((cc: any) => {
@@ -760,7 +754,9 @@ const Comercial = () => {
                           const acc: number[] = [];
                           for (let j = raw.length - 1; j >= 0; j--) { sum += raw[j]; acc[j] = sum; }
                           const leads = acc[0];
-                          const reunioes = acc[4];
+                          const reunioesAg = acc[4]; // acumulado de Reuniao Agendada
+                          const reunioesRe = acc[5]; // acumulado de Reuniao Realizada
+                          const noShow = Math.max(0, reunioesAg - reunioesRe);
                           const vendas = c.vendaFechada;
                           const fat = c.faturamento;
                           const hasVendas = vendas > 0;
@@ -774,7 +770,9 @@ const Comercial = () => {
                           // Metas por canal
                           const metaItems = [
                             { label: "Leads", real: leads, meta: cMeta.leads, color: "bg-sky-400 dark:bg-sky-500" },
-                            { label: "Reunioes", real: reunioes, meta: cMeta.reunioes, color: "bg-amber-400 dark:bg-amber-500" },
+                            { label: "Reun. Agendadas", real: reunioesAg, meta: 0, color: "bg-amber-400 dark:bg-amber-500" },
+                            { label: "No Show", real: noShow, meta: 0, color: "bg-red-400 dark:bg-red-500" },
+                            { label: "Reun. Realizadas", real: reunioesRe, meta: cMeta.reunioes, color: "bg-violet-400 dark:bg-violet-500" },
                             { label: "Vendas", real: vendas, meta: cMeta.vendas, color: "bg-emerald-500 dark:bg-emerald-400" },
                           ];
 
@@ -976,6 +974,14 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
   const [manualAgendamentos, setManualAgendamentos] = useState(metaMensal?.meta_agendamentos?.toString() || "");
   const [manualReunRealizadas, setManualReunRealizadas] = useState("");
 
+  // Sync form state when metaMensal changes (after save)
+  useEffect(() => {
+    setMVendas(metaMensal?.meta_vendas?.toString() || "");
+    setMFat(metaMensal?.meta_faturamento?.toString() || "");
+    setManualContatos(metaMensal?.meta_leads?.toString() || "");
+    setManualAgendamentos(metaMensal?.meta_agendamentos?.toString() || "");
+  }, [metaMensal]);
+
   // Calculated metas (auto mode)
   const calcMetas = useMemo(() => {
     const vendas = parseInt(mVendas) || 0;
@@ -1095,7 +1101,7 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
         meta_agendamentos: finalMetas.agendamentos,
         meta_vendas: parseInt(mVendas) || 0,
         meta_faturamento: parseFloat(mFat) || 0,
-      }, { onConflict: 'mes' });
+      }, { onConflict: 'mes,location_id' });
       if (error) throw error;
       toast.success("Meta mensal salva!");
       onSaved();
