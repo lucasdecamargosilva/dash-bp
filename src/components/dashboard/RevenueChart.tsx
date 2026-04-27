@@ -1,4 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface RevenueData {
@@ -16,9 +17,18 @@ interface RevenueChartProps {
 }
 
 function useIsDark() {
-  // Check if dark class is on html element
-  if (typeof document === 'undefined') return false;
-  return document.documentElement.classList.contains('dark');
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const update = () => setIsDark(document.documentElement.classList.contains('dark'));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
 }
 
 export function RevenueChart({
