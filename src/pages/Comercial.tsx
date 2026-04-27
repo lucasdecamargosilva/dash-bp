@@ -36,8 +36,13 @@ interface MetaMensal {
   mes: string;
   meta_leads: number;
   meta_agendamentos: number;
+  meta_reunioes_realizadas: number;
   meta_vendas: number;
   meta_faturamento: number;
+  taxa_contato_agend: number;
+  taxa_no_show: number;
+  taxa_reun_venda: number;
+  auto_calc: boolean;
 }
 
 interface DiarioEntry {
@@ -399,7 +404,7 @@ const Comercial = () => {
     return { byConsultor, totalLeads, totalConexoes, totalAgendadas, totalReunioes, totalNoShow, totalVendas, totalValor };
   }, [consultores, diarioData]);
 
-  const meta = metaMensal || { meta_leads: 0, meta_agendamentos: 0, meta_vendas: 0, meta_faturamento: 0 };
+  const meta = metaMensal || { meta_leads: 0, meta_agendamentos: 0, meta_reunioes_realizadas: 0, meta_vendas: 0, meta_faturamento: 0, taxa_contato_agend: 3, taxa_no_show: 30, taxa_reun_venda: 25, auto_calc: true };
   const conversao = totals.totalLeads > 0 ? ((totals.totalVendas / totals.totalLeads) * 100) : 0;
 
   // Filter consultores by section
@@ -606,7 +611,7 @@ const Comercial = () => {
                     {[
                       { label: "Meta Contatos", value: meta.meta_leads, realizado: ghlTotals.contato, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20" },
                       { label: "Meta Agendamentos", value: meta.meta_agendamentos, realizado: ghlTotals.agendada, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" },
-                      { label: "Meta Reun. Realizadas", value: meta.meta_agendamentos, realizado: ghlTotals.realizada, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
+                      { label: "Meta Reun. Realizadas", value: meta.meta_reunioes_realizadas, realizado: ghlTotals.realizada, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
                       { label: "Meta Vendas", value: meta.meta_vendas, realizado: ghlTotals.venda, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" },
                     ].map(m => {
                       const pct = m.value > 0 ? (m.realizado / m.value) * 100 : 0;
@@ -634,7 +639,7 @@ const Comercial = () => {
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_reunioes_realizadas} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                   </div>
                 )}
@@ -645,7 +650,7 @@ const Comercial = () => {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up delay-2">
                       <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
                       <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
-                      <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                      <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_reunioes_realizadas} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                       <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                     </div>
 
@@ -711,7 +716,7 @@ const Comercial = () => {
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_reunioes_realizadas} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                   </div>
                 )}
@@ -729,7 +734,7 @@ const Comercial = () => {
                         const mergedMap = new Map<string, any>();
                         // Add GHL data first
                         (ghlData?.byCanalPessoa || [])
-                          .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal")
+                          .filter(c => c.total >= 1 && c.canal && c.canal !== "Sem canal")
                           .forEach(c => {
                             const pessoaLabel = c.pessoa || "Sem pessoa";
                             const key = `${c.canal} | ${pessoaLabel}`;
@@ -962,24 +967,30 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
   const [saving, setSaving] = useState(false);
 
   // Meta mensal form
-  const [autoCalc, setAutoCalc] = useState(true);
+  const [autoCalc, setAutoCalc] = useState(metaMensal?.auto_calc ?? true);
   const [mVendas, setMVendas] = useState(metaMensal?.meta_vendas?.toString() || "");
   const [mFat, setMFat] = useState(metaMensal?.meta_faturamento?.toString() || "");
   // Auto mode: taxas
-  const [taxaContatoAgend, setTaxaContatoAgend] = useState("3");
-  const [taxaNoShow, setTaxaNoShow] = useState("30");
-  const [taxaReunVenda, setTaxaReunVenda] = useState("25");
+  const [taxaContatoAgend, setTaxaContatoAgend] = useState(metaMensal?.taxa_contato_agend?.toString() || "3");
+  const [taxaNoShow, setTaxaNoShow] = useState(metaMensal?.taxa_no_show?.toString() || "30");
+  const [taxaReunVenda, setTaxaReunVenda] = useState(metaMensal?.taxa_reun_venda?.toString() || "25");
   // Manual mode: metas manuais
   const [manualContatos, setManualContatos] = useState(metaMensal?.meta_leads?.toString() || "");
   const [manualAgendamentos, setManualAgendamentos] = useState(metaMensal?.meta_agendamentos?.toString() || "");
-  const [manualReunRealizadas, setManualReunRealizadas] = useState("");
+  const [manualReunRealizadas, setManualReunRealizadas] = useState(metaMensal?.meta_reunioes_realizadas?.toString() || "");
 
   // Sync form state when metaMensal changes (after save)
   useEffect(() => {
-    setMVendas(metaMensal?.meta_vendas?.toString() || "");
-    setMFat(metaMensal?.meta_faturamento?.toString() || "");
-    setManualContatos(metaMensal?.meta_leads?.toString() || "");
-    setManualAgendamentos(metaMensal?.meta_agendamentos?.toString() || "");
+    if (!metaMensal) return;
+    setAutoCalc(metaMensal.auto_calc ?? true);
+    setMVendas(metaMensal.meta_vendas?.toString() || "");
+    setMFat(metaMensal.meta_faturamento?.toString() || "");
+    setTaxaContatoAgend(metaMensal.taxa_contato_agend?.toString() || "3");
+    setTaxaNoShow(metaMensal.taxa_no_show?.toString() || "30");
+    setTaxaReunVenda(metaMensal.taxa_reun_venda?.toString() || "25");
+    setManualContatos(metaMensal.meta_leads?.toString() || "");
+    setManualAgendamentos(metaMensal.meta_agendamentos?.toString() || "");
+    setManualReunRealizadas(metaMensal.meta_reunioes_realizadas?.toString() || "");
   }, [metaMensal]);
 
   // Calculated metas (auto mode)
@@ -1099,8 +1110,13 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
         location_id: locationId,
         meta_leads: finalMetas.contatos,
         meta_agendamentos: finalMetas.agendamentos,
+        meta_reunioes_realizadas: finalMetas.reunRealizadas,
         meta_vendas: parseInt(mVendas) || 0,
         meta_faturamento: parseFloat(mFat) || 0,
+        taxa_contato_agend: parseFloat(taxaContatoAgend) || 0,
+        taxa_no_show: parseFloat(taxaNoShow) || 0,
+        taxa_reun_venda: parseFloat(taxaReunVenda) || 0,
+        auto_calc: autoCalc,
       }, { onConflict: 'mes,location_id' });
       if (error) throw error;
       toast.success("Meta mensal salva!");
