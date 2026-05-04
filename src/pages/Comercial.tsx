@@ -276,6 +276,7 @@ const Comercial = () => {
   const [activeTab, setActiveTab] = useState("geral");
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [metaMensal, setMetaMensal] = useState<MetaMensal | null>(null);
+  const [metaFromPrevMonth, setMetaFromPrevMonth] = useState(false);
   const [diarioData, setDiarioData] = useState<DiarioEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -367,8 +368,26 @@ const Comercial = () => {
         (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-30`).eq('location_id', locationId).order('data'),
       ]);
       setConsultores(cRes.data || []);
-      setMetaMensal(mRes.data || null);
       setDiarioData(dRes.data || []);
+
+      if (mRes.data) {
+        setMetaMensal(mRes.data);
+        setMetaFromPrevMonth(false);
+      } else {
+        // No meta for current month — load previous month as default
+        const [year, month] = mes.split('-').map(Number);
+        const prevDate = new Date(year, month - 2, 1);
+        const prevMes = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+        const { data: prevMeta } = await (supabase as any)
+          .from('comercial_metas').select('*').eq('mes', prevMes).eq('location_id', locationId).single();
+        if (prevMeta) {
+          setMetaMensal({ ...prevMeta, mes });
+          setMetaFromPrevMonth(true);
+        } else {
+          setMetaMensal(null);
+          setMetaFromPrevMonth(false);
+        }
+      }
       setLoading(false);
     }
     load();
@@ -885,6 +904,7 @@ const Comercial = () => {
                 canalConfigs={canalConfigs}
                 locationId={locationId}
                 onSaved={() => setRefreshKey(k => k + 1)}
+                metaFromPrevMonth={metaFromPrevMonth}
               />
             )}
 
@@ -896,8 +916,8 @@ const Comercial = () => {
 };
 
 // ---- Config Panel ----
-function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, allCanaisHistorico, locationId, onSaved }: {
-  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; allCanaisHistorico: { canal: string; pessoa: string }[]; locationId: string; onSaved: () => void;
+function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, allCanaisHistorico, locationId, onSaved, metaFromPrevMonth }: {
+  consultores: Consultor[]; metaMensal: MetaMensal | null; mes: string; ghlCanais: any[]; canalConfigs: any[]; allCanaisHistorico: { canal: string; pessoa: string }[]; locationId: string; onSaved: () => void; metaFromPrevMonth?: boolean;
 }) {
   // Canal config
   const [editingCanal, setEditingCanal] = useState<string | null>(null);
@@ -1129,6 +1149,14 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
     <div className="space-y-6">
       {/* Simulador de Metas */}
       <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi overflow-hidden animate-fade-up delay-1">
+        {metaFromPrevMonth && (
+          <div className="px-5 py-2.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-xs font-body font-semibold text-amber-700 dark:text-amber-400">
+              Metas carregadas do mês anterior. Revise e clique em Salvar para confirmar para {mes}.
+            </p>
+          </div>
+        )}
         <div className="px-5 py-4 border-b border-steel-100 dark:border-border flex items-center justify-between">
           <div>
             <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Simulador de Metas - {mes}</h3>
