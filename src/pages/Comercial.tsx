@@ -737,7 +737,7 @@ const Comercial = () => {
                         const mergedMap = new Map<string, any>();
                         // Add GHL data first (inclui canais sem pessoa como "Lista SHP")
                         (ghlData?.byCanalPessoa || [])
-                          .filter(c => c.total >= 3 && c.canal && c.canal !== "Sem canal")
+                          .filter(c => c.total >= 1 && c.canal && c.canal !== "Sem canal")
                           .forEach(c => {
                             const key = (c.pessoa && c.pessoa !== "Sem pessoa") ? `${c.canal} | ${c.pessoa}` : c.canal;
                             if (!mergedMap.has(key)) mergedMap.set(key, { ...c, _key: key });
