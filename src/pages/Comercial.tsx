@@ -272,9 +272,17 @@ const Comercial = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Date range for GHL data
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: new Date(),
+  // If today is the 1st or 2nd of the month, default to previous month so the
+  // dashboard doesn't start empty on the first days of a new month.
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const now = new Date();
+    if (now.getDate() <= 2) {
+      // Previous month: day 1 to last day
+      const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0); // day 0 = last day of prev month
+      return { from: prevMonthStart, to: prevMonthEnd };
+    }
+    return { from: startOfMonth(now), to: now };
   });
 
   // Canal config
@@ -356,7 +364,7 @@ const Comercial = () => {
       const [cRes, mRes, dRes] = await Promise.all([
         (supabase as any).from('comercial_consultores').select('*').eq('ativo', true).eq('location_id', locationId).order('nome'),
         (supabase as any).from('comercial_metas').select('*').eq('mes', mes).eq('location_id', locationId).single(),
-        (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-30`).eq('location_id', locationId).order('data'),
+        (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-31`).eq('location_id', locationId).order('data'),
       ]);
       setConsultores(cRes.data || []);
       setMetaMensal(mRes.data || null);
@@ -364,7 +372,7 @@ const Comercial = () => {
       setLoading(false);
     }
     load();
-  }, [refreshKey]);
+  }, [refreshKey, mes]);
 
   // Aggregated data
   const totals = useMemo(() => {
