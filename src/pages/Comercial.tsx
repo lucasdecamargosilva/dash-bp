@@ -355,6 +355,12 @@ const Comercial = () => {
   }, [ghlData]);
 
   const mes = currentMes;
+  // configMes is always the REAL current month (for saving/editing metas),
+  // independent of the GHL date range picker.
+  const configMes = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
   const { currentDay, daysInMonth, pct: monthPct } = getMonthProgress();
 
   // Load data
@@ -887,7 +893,7 @@ const Comercial = () => {
               <ConfigPanel
                 consultores={consultores}
                 metaMensal={metaMensal}
-                mes={mes}
+                mes={configMes}
                 ghlCanais={ghlData?.byCanalPessoa || []}
                 allCanaisHistorico={allCanaisHistorico}
                 canalConfigs={canalConfigs}
@@ -1099,14 +1105,23 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
   const handleSaveMeta = async () => {
     setSavingMeta(true);
     try {
-      const { error } = await (supabase as any).from('comercial_metas').upsert({
+      const payload = {
         mes,
         location_id: locationId,
         meta_leads: finalMetas.contatos,
         meta_agendamentos: finalMetas.agendamentos,
         meta_vendas: parseInt(mVendas) || 0,
         meta_faturamento: parseFloat(mFat) || 0,
-      }, { onConflict: 'mes' });
+      };
+      // Check if row already exists for this month+location
+      const { data: existing } = await (supabase as any)
+        .from('comercial_metas').select('id').eq('mes', mes).eq('location_id', locationId).maybeSingle();
+      let error;
+      if (existing?.id) {
+        ({ error } = await (supabase as any).from('comercial_metas').update(payload).eq('id', existing.id));
+      } else {
+        ({ error } = await (supabase as any).from('comercial_metas').insert(payload));
+      }
       if (error) throw error;
       toast.success("Meta mensal salva!");
       onSaved();
