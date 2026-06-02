@@ -1,20 +1,6 @@
-FROM node:20 AS build
-
-WORKDIR /app
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-
-COPY package.json package-lock.json .npmrc ./
-RUN npm ci --legacy-peer-deps --no-audit --no-fund --prefer-offline || \
-    npm install --legacy-peer-deps --no-audit --no-fund
-
-COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
-COPY public ./public
-COPY src ./src
-
-RUN npm run build
-
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+
+COPY dist /usr/share/nginx/html
 
 RUN echo 'server { \
     listen 80; \
