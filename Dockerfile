@@ -1,10 +1,11 @@
 FROM node:20 AS build
 
 WORKDIR /app
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-COPY package.json .npmrc ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund --prefer-offline || \
+    npm install --legacy-peer-deps --no-audit --no-fund
 
 COPY index.html vite.config.ts tailwind.config.ts postcss.config.js tsconfig.json tsconfig.app.json tsconfig.node.json components.json eslint.config.js ./
 COPY public ./public
