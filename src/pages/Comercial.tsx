@@ -981,17 +981,17 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
   const [saving, setSaving] = useState(false);
 
   // Meta mensal form
-  const [autoCalc, setAutoCalc] = useState(true);
+  const [autoCalc, setAutoCalc] = useState(metaMensal?.auto_calc !== false);
   const [mVendas, setMVendas] = useState(metaMensal?.meta_vendas?.toString() || "");
   const [mFat, setMFat] = useState(metaMensal?.meta_faturamento?.toString() || "");
-  // Auto mode: taxas
-  const [taxaContatoAgend, setTaxaContatoAgend] = useState("3");
-  const [taxaNoShow, setTaxaNoShow] = useState("30");
-  const [taxaReunVenda, setTaxaReunVenda] = useState("25");
+  // Auto mode: taxas — load from saved meta or use defaults
+  const [taxaContatoAgend, setTaxaContatoAgend] = useState((metaMensal as any)?.taxa_contato_agend?.toString() || "3");
+  const [taxaNoShow, setTaxaNoShow] = useState((metaMensal as any)?.taxa_no_show?.toString() || "30");
+  const [taxaReunVenda, setTaxaReunVenda] = useState((metaMensal as any)?.taxa_reun_venda?.toString() || "25");
   // Manual mode: metas manuais
   const [manualContatos, setManualContatos] = useState(metaMensal?.meta_leads?.toString() || "");
   const [manualAgendamentos, setManualAgendamentos] = useState(metaMensal?.meta_agendamentos?.toString() || "");
-  const [manualReunRealizadas, setManualReunRealizadas] = useState("");
+  const [manualReunRealizadas, setManualReunRealizadas] = useState((metaMensal as any)?.meta_reunioes_realizadas?.toString() || "");
 
   // Calculated metas (auto mode)
   const calcMetas = useMemo(() => {
@@ -1110,8 +1110,13 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
         location_id: locationId,
         meta_leads: finalMetas.contatos,
         meta_agendamentos: finalMetas.agendamentos,
+        meta_reunioes_realizadas: finalMetas.reunRealizadas,
         meta_vendas: parseInt(mVendas) || 0,
         meta_faturamento: parseFloat(mFat) || 0,
+        taxa_contato_agend: parseFloat(taxaContatoAgend) || 3,
+        taxa_no_show: parseFloat(taxaNoShow) || 30,
+        taxa_reun_venda: parseFloat(taxaReunVenda) || 25,
+        auto_calc: autoCalc,
       };
       // Check if row already exists for this month+location
       const { data: existing } = await (supabase as any)
@@ -1125,7 +1130,10 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
       if (error) throw error;
       toast.success("Meta mensal salva!");
       onSaved();
-    } catch { toast.error("Erro ao salvar meta"); }
+    } catch (err: any) {
+      console.error("[handleSaveMeta] erro:", err);
+      toast.error("Erro ao salvar meta: " + (err?.message || err?.toString() || "desconhecido"));
+    }
     finally { setSavingMeta(false); }
   };
 
