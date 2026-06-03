@@ -1,5 +1,5 @@
 node_modules
-dist
+# dist is now committed and needed by Dockerfile (nginx COPY)
 .git
 DASH METAS
 supabase
