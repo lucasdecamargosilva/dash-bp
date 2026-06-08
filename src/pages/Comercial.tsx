@@ -317,6 +317,7 @@ const Comercial = () => {
   const GHL_USERS: Record<string, string> = {
     "vzPEBQaqgZw6Z2AhUqGQ": "Aline Autoral",
     "HLq1ZteZT3ov44XFhCcQ": "Andre Lima",
+    "hSEGFIKfSCNXxpxhUqWT": "Carol Santana",
     "8MloR8VTt2BlQCvisQOS": "Felipe Caon",
     "hO9WG11u8CN6nnzFxZuT": "Fernanda Capella",
     "iP8qyqGLlIvw74rr1vvE": "Marcelo Oda",
