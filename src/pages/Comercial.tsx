@@ -778,7 +778,7 @@ const Comercial = () => {
                           const acc: number[] = [];
                           for (let j = raw.length - 1; j >= 0; j--) { sum += raw[j]; acc[j] = sum; }
                           const leads = acc[0];
-                          const reunioes = acc[4];
+                          const reunioes = acc[5];
                           const vendas = c.vendaFechada;
                           const fat = c.faturamento;
                           const hasVendas = vendas > 0;
