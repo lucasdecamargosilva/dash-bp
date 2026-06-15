@@ -113,8 +113,8 @@ export async function getGHLPipelineFromCache(dateRange?: DateRange, config?: GH
     const totals = emptyMetrics("Total", "Total");
 
     for (const opp of opps) {
-      const canal = opp.source || "Sem canal";
-      const pessoa = opp.pessoa || "Sem pessoa";
+      const canal = (opp.source || "Sem canal").trim();
+      const pessoa = (opp.pessoa || "Sem pessoa").trim();
       const combo = `${canal} | ${pessoa}`;
       const value = parseFloat(opp.monetary_value) || 0;
 
@@ -181,8 +181,8 @@ function parseSummaryRows(rows: any[]): GHLSummary {
 
   for (const row of rows) {
     const metrics: ChannelMetrics = {
-      canal: row.canal || "",
-      pessoa: row.pessoa || "",
+      canal: (row.canal || "").trim(),
+      pessoa: (row.pessoa || "").trim(),
       contato: row.contato || 0,
       msgEnviada: row.msg_enviada || 0,
       conexao: row.conexao || 0,
