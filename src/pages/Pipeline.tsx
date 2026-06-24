@@ -657,7 +657,7 @@ const Pipeline = () => {
                   ticketMedio: c.vendaFechada > 0 ? c.faturamento / c.vendaFechada : 0,
                   leadsQualificados: c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
                   taxaQualificacao: c.total > 0 ? ((c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada) / c.total) * 100 : 0,
-                  reunioes: c.reuniaoAgendada + c.reuniaoRealizada,
+                  reunioes: c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
                 }))
                 .sort((a, b) => b.conversao - a.conversao);
               return (
@@ -759,7 +759,7 @@ const Pipeline = () => {
                   conversao: p.total > 0 ? (p.vendaFechada / p.total) * 100 : 0,
                   ticketMedio: p.vendaFechada > 0 ? p.faturamento / p.vendaFechada : 0,
                   leadsQualificados: p.whatsappObtido + p.reuniaoAgendada + p.reuniaoRealizada + p.propostaEmAnalise + p.vendaFechada,
-                  reunioes: p.reuniaoRealizada, propostas: p.propostaEmAnalise,
+                  reunioes: p.reuniaoRealizada + p.propostaEmAnalise + p.vendaFechada, propostas: p.propostaEmAnalise,
                 }))
                 .sort((a, b) => b.faturamento - a.faturamento || b.conversao - a.conversao);
               return (
