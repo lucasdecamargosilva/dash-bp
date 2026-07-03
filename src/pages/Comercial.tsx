@@ -291,10 +291,22 @@ const Comercial = () => {
   const [allCanaisHistorico, setAllCanaisHistorico] = useState<{ canal: string; pessoa: string }[]>([]);
 
   useEffect(() => {
-    // Load only configs for current month
+    // Load only configs for current month; if none exist, auto-copy from previous month
     const curMonth = dateRange?.from ? `${dateRange.from.getFullYear()}-${String(dateRange.from.getMonth() + 1).padStart(2, "0")}` : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-    (supabase as any).from("canal_config").select("*").eq("mes", curMonth).eq("location_id", locationId).order("canal").then(({ data }: any) => {
-      setCanalConfigs(data || []);
+    (supabase as any).from("canal_config").select("*").eq("mes", curMonth).eq("location_id", locationId).order("canal").then(async ({ data }: any) => {
+      if (data && data.length > 0) {
+        setCanalConfigs(data);
+        return;
+      }
+      // No configs for this month — try to copy from previous month
+      const d = dateRange?.from ? new Date(dateRange.from) : new Date();
+      const prevDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+      const { data: prevData } = await (supabase as any).from("canal_config").select("*").eq("mes", prevMonth).eq("location_id", locationId);
+      if (!prevData || prevData.length === 0) { setCanalConfigs([]); return; }
+      const newRows = prevData.map(({ id: _id, created_at: _ca, ...rest }: any) => ({ ...rest, mes: curMonth }));
+      await (supabase as any).from("canal_config").insert(newRows);
+      setCanalConfigs(newRows);
     });
     // Load ALL unique canal+pessoa from history (no date filter)
     (supabase as any).from("ghl_pipeline_opportunities").select("source,pessoa").eq("location_id", locationId).then(({ data }: any) => {
@@ -374,7 +386,21 @@ const Comercial = () => {
         (supabase as any).from('comercial_diario').select('*').gte('data', `${mes}-01`).lte('data', `${mes}-31`).eq('location_id', locationId).order('data'),
       ]);
       setConsultores(cRes.data || []);
-      setMetaMensal(mRes.data || null);
+      // Auto-copy comercial_metas from previous month if none exist for current month
+      let metaData = mRes.data || null;
+      if (!metaData) {
+        const d = new Date();
+        const prevDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+        const prevMes = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+        const { data: prevMeta } = await (supabase as any).from('comercial_metas').select('*').eq('mes', prevMes).eq('location_id', locationId).single();
+        if (prevMeta) {
+          const { id: _id, created_at: _ca, ...rest } = prevMeta;
+          const newMeta = { ...rest, mes };
+          const { data: inserted } = await (supabase as any).from('comercial_metas').insert(newMeta).select().single();
+          metaData = inserted || newMeta;
+        }
+      }
+      setMetaMensal(metaData);
       setDiarioData(dRes.data || []);
       setLoading(false);
     }
