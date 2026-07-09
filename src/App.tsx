@@ -13,6 +13,7 @@ import Comercial from "./pages/Comercial";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import TV from "./pages/TV";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,11 @@ const App = () => (
               <Route path="/admin" element={
                 <ProtectedRoute>
                   <Admin />
+                </ProtectedRoute>
+              } />
+              <Route path="/tv" element={
+                <ProtectedRoute>
+                  <TV />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

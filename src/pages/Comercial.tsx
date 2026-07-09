@@ -4,7 +4,7 @@ import { type DateRange } from "react-day-picker";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { TVMode } from "@/components/comercial/TVMode";
+import { useNavigate } from "react-router-dom";
 import {
   Users, CalendarCheck, Calendar, CalendarX, TrendingUp, DollarSign, Plus, Save, Trash2, Pencil, Settings,
   BarChart3, User, Trophy, AlertTriangle, CheckCircle2, Loader2, UserX, Link2, Tv
@@ -264,9 +264,9 @@ function ConsultorInput({ consultor, mes, locationId, onSaved }: { consultor: Co
 const Comercial = () => {
   const { tenant } = useTenant();
   const locationId = tenant.ghlLocationId;
+  const navigate = useNavigate();
   const [section, setSection] = useState<"pre_venda" | "vendas" | "total">("pre_venda");
   const [activeTab, setActiveTab] = useState("geral");
-  const [tvOpen, setTvOpen] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [metaMensal, setMetaMensal] = useState<MetaMensal | null>(null);
   const [diarioData, setDiarioData] = useState<DiarioEntry[]>([]);
@@ -521,7 +521,7 @@ const Comercial = () => {
           {sidebarItems.map(item => (
             <button
               key={item.key}
-              onClick={() => item.key === "tv" ? setTvOpen(true) : setActiveTab(item.key)}
+              onClick={() => item.key === "tv" ? navigate("/tv") : setActiveTab(item.key)}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-body font-medium transition-colors text-left w-full",
                 item.key === "tv"
@@ -560,7 +560,7 @@ const Comercial = () => {
             {sidebarItems.map(item => (
               <button
                 key={item.key}
-                onClick={() => item.key === "tv" ? setTvOpen(true) : setActiveTab(item.key)}
+                onClick={() => item.key === "tv" ? navigate("/tv") : setActiveTab(item.key)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-body font-medium whitespace-nowrap",
                   item.key === "tv"
@@ -1410,19 +1410,6 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
         </AlertDialogContent>
       </AlertDialog>
 
-      {tvOpen && (
-        <TVMode
-          consultores={sectionConsultores}
-          byConsultor={totals.byConsultor}
-          totalVendas={totals.totalVendas}
-          totalReunioes={totals.totalReunioes}
-          totalValor={totals.totalValor}
-          meta={meta}
-          mes={mes}
-          locationId={locationId}
-          onClose={() => setTvOpen(false)}
-        />
-      )}
     </div>
   );
 }
