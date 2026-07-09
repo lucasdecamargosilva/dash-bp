@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,7 @@ function Confetti({ active }: { active: boolean }) {
   if (!active) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 10001 }}>
       {particles.current.map((p, i) => (
         <div
           key={i}
@@ -123,9 +124,10 @@ function SaleBanner({ vendedor, valor, visible }: { vendedor: string; valor: num
   return (
     <div
       className={cn(
-        "fixed inset-0 z-[59] flex items-center justify-center pointer-events-none transition-all duration-500",
+        "fixed inset-0 flex items-center justify-center pointer-events-none transition-all duration-500",
         visible ? "opacity-100" : "opacity-0"
       )}
+      style={{ zIndex: 10000 }}
     >
       <div
         className={cn(
@@ -310,12 +312,12 @@ export function TVMode({ consultores, byConsultor, totalVendas, totalReunioes, t
     ? Math.round(totalReunioes / totalVendas)
     : null;
 
-  return (
+  const content = (
     <>
       <Confetti active={celebrating} />
       <SaleBanner vendedor={saleInfo.vendedor} valor={saleInfo.valor} visible={celebrating} />
 
-      <div className="fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col overflow-auto">
+      <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col overflow-auto" style={{ zIndex: 9999 }}>
         {/* Header */}
         <LiveClock mes={mes} />
 
@@ -323,6 +325,7 @@ export function TVMode({ consultores, byConsultor, totalVendas, totalReunioes, t
         <button
           onClick={onClose}
           className="absolute top-4 left-4 text-white/30 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
+          style={{ zIndex: 10000 }}
         >
           <X className="h-5 w-5" />
         </button>
@@ -401,4 +404,6 @@ export function TVMode({ consultores, byConsultor, totalVendas, totalReunioes, t
       </div>
     </>
   );
+
+  return createPortal(content, document.body);
 }
