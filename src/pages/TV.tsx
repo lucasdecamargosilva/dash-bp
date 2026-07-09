@@ -346,10 +346,9 @@ export default function TV(){
         {/* Top stat cards */}
         <div className="flex gap-3">
           <StatCard
-            label="Vendas do Mês"
-            value={totalVendas}
-            sub={metaVendasTotal > 0 ? `Meta da equipe: ${metaVendasTotal}` : undefined}
-            color={vendasColor}
+            label="Reuniões Agendadas"
+            value={totalAgendadas}
+            color="text-sky-400"
           />
           <StatCard
             label="Apresentações do Mês"
@@ -357,9 +356,10 @@ export default function TV(){
             color="text-white"
           />
           <StatCard
-            label="Reuniões Agendadas"
-            value={totalAgendadas}
-            color="text-sky-400"
+            label="Vendas do Mês"
+            value={totalVendas}
+            sub={metaVendasTotal > 0 ? `Meta da equipe: ${metaVendasTotal}` : undefined}
+            color={vendasColor}
           />
         </div>
 
