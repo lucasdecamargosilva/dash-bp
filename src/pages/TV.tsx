@@ -5,20 +5,69 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { cn } from "@/lib/utils";
 
-interface Consultor { id: string; nome: string; setor: "pre_venda" | "vendas"; pct_meta: number; }
-interface DiarioEntry { consultor_id: string; leads_novos: number; reunioes: number; reunioes_agendadas?: number; vendas: number; valor_vendas: number; }
-interface MetaMensal { meta_vendas: number; meta_faturamento: number; meta_agendamentos: number; meta_leads: number; meta_reunioes_realizadas?: number; }
+// GHL user ID → name map (same as Comercial.tsx)
+const GHL_USERS: Record<string, string> = {
+  "vzPEBQaqgZw6Z2AhUqGQ": "Aline Autoral",
+  "HLq1ZteZT3ov44XFhCcQ": "Andre Lima",
+  "hSEGFIKfSCNXxpxhUqWT": "Carol Santana",
+  "8MloR8VTt2BlQCvisQOS": "Felipe Caon",
+  "hO9WG11u8CN6nnzFxZuT": "Fernanda Capella",
+  "iP8qyqGLlIvw74rr1vvE": "Marcelo Oda",
+  "DOaQWahn91t5DiJrpQdF": "Raphael Acioli",
+  "9oq3gqfnwfVqxhX42eje": "Thiago Canina",
+  "F7v0GiBvJvPVNotI7Sl9": "Thiago Sacramento",
+  "P8SRDXzyajdPYrPfle4T": "Vitoria Cloud",
+};
+
+const REALIZED_STAGES = new Set(["Reuniao Realizada", "Proposta em Analise", "Venda Fechada"]);
+const SCHEDULED_STAGES = new Set(["Reuniao Agendada", "Reuniao Realizada", "Proposta em Analise", "Venda Fechada"]);
+
+interface Opp { id: string; stage: string; followers: string[]; assigned_to: string | null; monetary_value: number; }
+interface UserStats { agendadas: number; realizadas: number; vendas: number; valor: number; }
+
+function emptyStats(): UserStats { return { agendadas: 0, realizadas: 0, vendas: 0, valor: 0 }; }
+
+function aggregate(opps: Opp[]): Map<string, UserStats> {
+  const map = new Map<string, UserStats>();
+  const ensure = (id: string) => { if (!map.has(id)) map.set(id, emptyStats()); return map.get(id)!; };
+  for (const opp of opps) {
+    const val = parseFloat(opp.monetary_value as any) || 0;
+    // Followers = closers (realizadas + vendas)
+    for (const fid of (opp.followers || [])) {
+      if (!GHL_USERS[fid]) continue;
+      const s = ensure(fid);
+      if (REALIZED_STAGES.has(opp.stage)) s.realizadas++;
+      if (opp.stage === "Venda Fechada") { s.vendas++; s.valor += val; }
+    }
+    // Owner = SDR (agendadas)
+    if (opp.assigned_to && GHL_USERS[opp.assigned_to] && SCHEDULED_STAGES.has(opp.stage)) {
+      ensure(opp.assigned_to).agendadas++;
+    }
+  }
+  return map;
+}
 
 // ── Sound ──────────────────────────────────────────────────────
-function playSaleSound() {
+function playVendaSound() {
   try {
     const ctx = new AudioContext();
     [[523.25,.12],[659.25,.12],[783.99,.12],[1046.5,.2],[1318.51,.4]].reduce((t,[f,d])=>{
       const o=ctx.createOscillator(),g=ctx.createGain();
       o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=f as number;
       g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+(d as number));
-      o.start(t);o.stop(t+(d as number)+.05);
-      return t+(d as number)*.9;
+      o.start(t);o.stop(t+(d as number)+.05);return t+(d as number)*.9;
+    }, ctx.currentTime+.05);
+  } catch {}
+}
+
+function playAgendaSound() {
+  try {
+    const ctx = new AudioContext();
+    [[440,.1],[554.37,.1],[659.25,.2]].reduce((t,[f,d])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=f as number;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.25,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+(d as number));
+      o.start(t);o.stop(t+(d as number)+.05);return t+(d as number)*.85;
     }, ctx.currentTime+.05);
   } catch {}
 }
@@ -33,21 +82,31 @@ function Confetti({active}:{active:boolean}){
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{zIndex:10001}}>
       <style>{`@keyframes fall{0%{transform:translateY(-20px) translateX(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) translateX(var(--d)) rotate(720deg);opacity:.3}}`}</style>
       {PARTS.map((p,i)=>(
-        <div key={i} className="absolute top-0" style={{left:`${p.x}%`,width:p.w,height:p.h,background:p.c,borderRadius:2,animation:`fall ${p.dr}s ${p.dl}s ease-in both`,"--d":`${p.dx}px`,transform:`rotate(${p.r}deg)`} as React.CSSProperties}/>
+        <div key={i} className="absolute top-0" style={{left:`${p.x}%`,width:p.w,height:p.h,background:p.c,borderRadius:2,animation:`fall ${p.dr}s ${p.dl}s ease-in both`,"--d":`${p.dx}px`,transform:`rotate(${p.r}deg)`}as React.CSSProperties}/>
       ))}
     </div>
   );
 }
 
-// ── Sale Banner ────────────────────────────────────────────────
-function SaleBanner({visible,vendedor,valor}:{visible:boolean;vendedor:string;valor:number}){
+// ── Celebration Banner ─────────────────────────────────────────
+type CelebType = "venda" | "agendamento" | null;
+
+function CelebBanner({type,nome,valor}:{type:CelebType;nome:string;valor:number}){
+  const visible = !!type;
+  const isVenda = type === "venda";
   return(
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none transition-all duration-500" style={{zIndex:10000,opacity:visible?1:0}}>
-      <div className={cn("bg-green-500 rounded-3xl px-20 py-12 text-center shadow-2xl transition-all duration-500",visible?"scale-100":"scale-75")}>
-        <div className="text-8xl mb-4">🏆</div>
-        <div className="text-white font-black text-6xl tracking-tight mb-3">VENDA FECHADA!</div>
-        <div className="text-green-100 text-3xl font-bold">{vendedor}</div>
-        {valor>0&&<div className="text-white text-4xl font-black mt-3">{valor.toLocaleString("pt-BR",{style:"currency",currency:"BRL",minimumFractionDigits:0})}</div>}
+      <div className={cn(
+        "rounded-3xl px-20 py-12 text-center shadow-2xl transition-all duration-500",
+        isVenda?"bg-green-500":"bg-sky-500",
+        visible?"scale-100":"scale-75"
+      )}>
+        <div className="text-8xl mb-4">{isVenda?"🏆":"📅"}</div>
+        <div className="text-white font-black text-5xl tracking-tight mb-3">
+          {isVenda?"VENDA FECHADA!":"REUNIÃO AGENDADA!"}
+        </div>
+        <div className="text-white/90 text-3xl font-bold">{nome}</div>
+        {isVenda&&valor>0&&<div className="text-white text-4xl font-black mt-3">{valor.toLocaleString("pt-BR",{style:"currency",currency:"BRL",minimumFractionDigits:0})}</div>}
       </div>
     </div>
   );
@@ -60,16 +119,18 @@ function Header({mes,onClose}:{mes:string;onClose:()=>void}){
   const[time,setTime]=useState(()=>new Date());
   useEffect(()=>{const id=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(id);},[]);
   const[year,month]=mes.split("-").map(Number);
-  const label=`${MONTH_NAMES[(month||1)-1]}/${year}`;
-  const hhmm=time.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   return(
-    <div className="flex items-center px-8 py-4 border-b border-white/10 relative">
-      <div className="flex items-center gap-3 w-48">
+    <div className="flex items-center px-8 py-4 border-b border-white/10 relative shrink-0">
+      <div className="w-44">
         <img src="/bp-group-logo-white.png" alt="BP Group" className="h-8 object-contain"/>
       </div>
-      <div className="absolute left-1/2 -translate-x-1/2 text-white font-black text-3xl tracking-wide">{label}</div>
+      <div className="absolute left-1/2 -translate-x-1/2 text-white font-black text-3xl tracking-wide">
+        {MONTH_NAMES[(month||1)-1]}/{year}
+      </div>
       <div className="ml-auto flex items-center gap-4">
-        <span className="text-white font-mono font-black text-4xl tracking-wider">{hhmm}</span>
+        <span className="text-white font-mono font-black text-4xl tracking-wider">
+          {time.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+        </span>
         <button onClick={onClose} className="text-white/30 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
           <X className="h-5 w-5"/>
         </button>
@@ -81,7 +142,7 @@ function Header({mes,onClose}:{mes:string;onClose:()=>void}){
 // ── Top Stat Card ──────────────────────────────────────────────
 function StatCard({label,value,sub,color}:{label:string;value:string|number;sub?:string;color?:string}){
   return(
-    <div className="bg-white/5 rounded-2xl p-6 text-center flex-1 flex flex-col gap-1">
+    <div className="bg-white/5 rounded-2xl p-5 text-center flex-1 flex flex-col gap-1">
       <div className="text-white/50 text-xs font-bold tracking-widest uppercase">{label}</div>
       <div className={cn("text-7xl font-black tabular-nums leading-none my-1",color||"text-white")}>{value}</div>
       {sub&&<div className="text-white/40 text-sm font-semibold">{sub}</div>}
@@ -89,37 +150,53 @@ function StatCard({label,value,sub,color}:{label:string;value:string|number;sub?
   );
 }
 
+// ── Ritmo Card ─────────────────────────────────────────────────
+function RitmoCard({label,value,icon}:{label:string;value:number|string;icon:string}){
+  return(
+    <div className="bg-white/5 rounded-xl px-5 py-3 flex items-center gap-3 flex-1">
+      <span className="text-2xl">{icon}</span>
+      <div>
+        <div className="text-white/40 text-xs font-bold tracking-widest uppercase leading-none mb-0.5">{label}</div>
+        <div className="text-white font-black text-2xl tabular-nums leading-none">{value}</div>
+      </div>
+    </div>
+  );
+}
+
 // ── Consultor Card ─────────────────────────────────────────────
-function ConsultorCard({c,vendas,reunioes,metaVendas,ritmo}:{
-  c:Consultor; vendas:number; reunioes:number; metaVendas:number; ritmo:number;
+function ConsultorCard({nome,stats,metaVendas,ritmoRealizadas}:{
+  nome:string; stats:UserStats; metaVendas:number; ritmoRealizadas:number;
 }){
-  const pctV=metaVendas>0?Math.min(100,(vendas/metaVendas)*100):0;
-  const metaReun=ritmo*metaVendas;
-  const pctR=metaReun>0?Math.min(100,(reunioes/metaReun)*100):0;
-  const faltam=ritmo>0?Math.max(0,ritmo-(reunioes%ritmo||ritmo)):0;
+  const pctV = metaVendas>0?Math.min(100,(stats.vendas/metaVendas)*100):0;
+  const metaReun = ritmoRealizadas*metaVendas;
+  const pctR = metaReun>0?Math.min(100,(stats.realizadas/metaReun)*100):0;
+  const faltam = ritmoRealizadas>0?Math.max(0,ritmoRealizadas-(stats.realizadas%ritmoRealizadas||ritmoRealizadas)):0;
 
   return(
     <div className="bg-white/5 rounded-2xl p-5 flex flex-col gap-3 border border-white/5">
       <div className="flex items-center justify-between">
-        <span className="text-white font-black text-xl leading-tight">{c.nome}</span>
-        {ritmo>0&&<span className="text-white/30 text-xs font-mono shrink-0 ml-2">1 venda ≈ {ritmo} apres.</span>}
+        <span className="text-white font-black text-xl leading-tight">{nome}</span>
+        {ritmoRealizadas>0&&<span className="text-white/30 text-xs font-mono shrink-0 ml-2">1 venda ≈ {ritmoRealizadas} apres.</span>}
       </div>
 
       {/* Vendas */}
       <div>
-        <span className="text-white font-black text-5xl tabular-nums">{vendas}</span>
-        <span className="text-white/30 text-xl font-bold">/{metaVendas} vendas</span>
+        <span className="text-white font-black text-5xl tabular-nums">{stats.vendas}</span>
+        {metaVendas>0&&<span className="text-white/30 text-xl font-bold">/{metaVendas} vendas</span>}
       </div>
       <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-1000",pctV>=100?"bg-green-400":pctV>=50?"bg-yellow-400":"bg-red-500")} style={{width:`${pctV}%`}}/>
+        <div className={cn("h-full rounded-full transition-all duration-1000",
+          pctV>=100?"bg-green-400":pctV>=50?"bg-yellow-400":"bg-red-500"
+        )} style={{width:`${Math.max(pctV,stats.vendas>0?5:0)}%`}}/>
       </div>
 
-      {/* Apresentações */}
+      {/* Realizadas */}
       <div className="flex items-center gap-1.5 text-yellow-400 text-sm font-semibold">
-        <span>🤝</span><span>{reunioes} apresentações no mês</span>
+        <span>🤝</span><span>{stats.realizadas} apresentações no mês</span>
+        {stats.agendadas>0&&<span className="ml-auto text-sky-400">📅 {stats.agendadas} agendadas</span>}
       </div>
       <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-        <div className="h-full rounded-full bg-sky-500 transition-all duration-1000" style={{width:`${pctR}%`}}/>
+        <div className="h-full rounded-full bg-sky-500 transition-all duration-1000" style={{width:`${Math.max(pctR,stats.realizadas>0?3:0)}%`}}/>
       </div>
 
       {faltam>0&&(
@@ -133,111 +210,186 @@ function ConsultorCard({c,vendas,reunioes,metaVendas,ritmo}:{
 
 // ── Main ───────────────────────────────────────────────────────
 export default function TV(){
-  const navigate=useNavigate();
-  const{tenant}=useTenant();
-  const locationId=tenant.ghlLocationId||"";
+  const navigate = useNavigate();
+  const { tenant } = useTenant();
+  const locationId = tenant.ghlLocationId||"";
 
-  const[consultores,setConsultores]=useState<Consultor[]>([]);
-  const[diarioData,setDiarioData]=useState<DiarioEntry[]>([]);
-  const[meta,setMeta]=useState<MetaMensal>({meta_vendas:0,meta_faturamento:0,meta_agendamentos:0,meta_leads:0});
-  const[celebrating,setCelebrating]=useState(false);
-  const[saleInfo,setSaleInfo]=useState({vendedor:"",valor:0});
-  const prevVendasRef=useRef(new Map<string,number>());
-  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const [opps, setOpps] = useState<Opp[]>([]);
+  const [metaVendasTotal, setMetaVendasTotal] = useState(0);
+  const [celebType, setCelebType] = useState<CelebType>(null);
+  const [celebNome, setCelebNome] = useState("");
+  const [celebValor, setCelebValor] = useState(0);
 
-  const now=new Date();
-  const mes=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const prevStagesRef = useRef(new Map<string, string>());
+  const celebTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
 
-  const celebrate=useCallback((nome:string,valor:number)=>{
-    if(timer.current)clearTimeout(timer.current);
-    setSaleInfo({vendedor:nome,valor});
-    setCelebrating(true);
-    playSaleSound();
-    timer.current=setTimeout(()=>setCelebrating(false),5500);
-  },[]);
+  const now = new Date();
+  const mes = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  // First day of month in UTC+0 (GHL stores UTC, Brazil = UTC-3 so month starts at 03:00 UTC)
+  const fromUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 3, 0, 0));
 
-  useEffect(()=>{
-    if(!locationId)return;
-    async function load(){
-      const[cR,mR,dR]=await Promise.all([
-        (supabase as any).from("comercial_consultores").select("*").eq("ativo",true).eq("location_id",locationId).order("nome"),
-        (supabase as any).from("comercial_metas").select("*").eq("mes",mes).eq("location_id",locationId).single(),
-        (supabase as any).from("comercial_diario").select("*").gte("data",`${mes}-01`).lte("data",`${mes}-31`).eq("location_id",locationId),
-      ]);
-      setConsultores(cR.data||[]);
-      if(mR.data)setMeta(mR.data);
-      setDiarioData(dR.data||[]);
-      const m=new Map<string,number>();
-      for(const r of(dR.data||[]))m.set(r.consultor_id,(m.get(r.consultor_id)||0)+(r.vendas||0));
-      prevVendasRef.current=m;
+  const celebrate = useCallback((type: CelebType, nome: string, valor = 0) => {
+    if (celebTimer.current) clearTimeout(celebTimer.current);
+    setCelebType(type); setCelebNome(nome); setCelebValor(valor);
+    if (type === "venda") playVendaSound(); else playAgendaSound();
+    celebTimer.current = setTimeout(() => setCelebType(null), 5500);
+  }, []);
+
+  // Load GHL opportunities for current month
+  const loadOpps = useCallback(async () => {
+    if (!locationId) return;
+    const { data } = await (supabase as any)
+      .from("ghl_pipeline_opportunities")
+      .select("id,stage,followers,assigned_to,monetary_value")
+      .eq("location_id", locationId)
+      .gte("last_stage_change_at", fromUTC.toISOString());
+    if (data) {
+      setOpps(data);
+      // Init prevStages
+      for (const o of data) prevStagesRef.current.set(o.id, o.stage);
     }
-    load();
-  },[locationId,mes]);
+  }, [locationId]);
 
-  useEffect(()=>{
-    if(!locationId)return;
-    const ch=(supabase as any).channel(`tv-${locationId}`)
-      .on("postgres_changes",{event:"*",schema:"public",table:"comercial_diario",filter:`location_id=eq.${locationId}`},
-        async()=>{
-          const{data}=await(supabase as any).from("comercial_diario").select("*").gte("data",`${mes}-01`).lte("data",`${mes}-31`).eq("location_id",locationId);
-          if(!data)return;
-          const m=new Map<string,{v:number;vl:number}>();
-          for(const r of data){const c=m.get(r.consultor_id)||{v:0,vl:0};c.v+=r.vendas||0;c.vl+=r.valor_vendas||0;m.set(r.consultor_id,c);}
-          for(const[id,curr]of m){
-            const prev=prevVendasRef.current.get(id)||0;
-            if(curr.v>prev){const nome=consultores.find(x=>x.id===id)?.nome||"Equipe";celebrate(nome,curr.vl);prevVendasRef.current.set(id,curr.v);}
+  // Load meta
+  useEffect(() => {
+    if (!locationId) return;
+    (supabase as any).from("comercial_metas").select("meta_vendas")
+      .eq("mes", mes).eq("location_id", locationId).single()
+      .then(({ data }: any) => { if (data) setMetaVendasTotal(data.meta_vendas||0); });
+  }, [locationId, mes]);
+
+  useEffect(() => { loadOpps(); }, [loadOpps]);
+
+  // Realtime: detect stage changes in ghl_pipeline_opportunities
+  useEffect(() => {
+    if (!locationId) return;
+    const ch = (supabase as any)
+      .channel(`tv-ghl-${locationId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "ghl_pipeline_opportunities",
+        filter: `location_id=eq.${locationId}`
+      }, async (payload: any) => {
+        const opp = payload.new as Opp;
+        if (!opp) return;
+        const prevStage = prevStagesRef.current.get(opp.id);
+
+        if (opp.stage !== prevStage) {
+          // New agendamento: stage just became Reuniao Agendada
+          if (opp.stage === "Reuniao Agendada" && prevStage !== "Reuniao Agendada") {
+            const ownerName = opp.assigned_to ? GHL_USERS[opp.assigned_to] : null;
+            celebrate("agendamento", ownerName || "Equipe");
           }
-          setDiarioData(data);
+          // New venda: stage just became Venda Fechada
+          if (opp.stage === "Venda Fechada" && prevStage !== "Venda Fechada") {
+            const followers = opp.followers || [];
+            const closerName = followers.length > 0 ? GHL_USERS[followers[0]] : null;
+            celebrate("venda", closerName || "Equipe", parseFloat(opp.monetary_value as any) || 0);
+          }
         }
-      ).subscribe();
-    return()=>{(supabase as any).removeChannel(ch);};
-  },[locationId,mes,consultores,celebrate]);
+        prevStagesRef.current.set(opp.id, opp.stage);
+        // Reload all opps to update counts
+        loadOpps();
+      })
+      .subscribe();
+    return () => { (supabase as any).removeChannel(ch); };
+  }, [locationId, celebrate, loadOpps]);
+
+  // Poll every 5 min as fallback
+  useEffect(() => {
+    const id = setInterval(loadOpps, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [loadOpps]);
 
   // Aggregate
-  const byC=new Map<string,{vendas:number;reunioes:number;valor:number}>();
-  for(const c of consultores)byC.set(c.id,{vendas:0,reunioes:0,valor:0});
-  for(const d of diarioData){const x=byC.get(d.consultor_id);if(x){x.vendas+=d.vendas||0;x.reunioes+=d.reunioes||0;x.valor+=d.valor_vendas||0;}}
+  const statsMap = aggregate(opps);
 
-  const totalVendas=Array.from(byC.values()).reduce((s,v)=>s+v.vendas,0);
-  const totalReunioes=Array.from(byC.values()).reduce((s,v)=>s+v.reunioes,0);
-  const totalValor=Array.from(byC.values()).reduce((s,v)=>s+v.valor,0);
-  const metaV=meta.meta_vendas||0;
-  const metaR=meta.meta_reunioes_realizadas||0;
+  // Build sorted list of active users (by vendas desc, then realizadas desc)
+  const activeUsers = Array.from(
+    new Set([
+      ...opps.flatMap(o => (o.followers||[]).filter(f => GHL_USERS[f])),
+      ...opps.filter(o => o.assigned_to && GHL_USERS[o.assigned_to]).map(o => o.assigned_to!),
+    ])
+  ).map(uid => ({ uid, nome: GHL_USERS[uid], stats: statsMap.get(uid) || emptyStats() }))
+    .sort((a, b) => b.stats.vendas - a.stats.vendas || b.stats.realizadas - a.stats.realizadas);
 
-  const pctV=metaV>0?Math.round((totalVendas/metaV)*100):0;
-  const pctR=metaR>0?Math.round((totalReunioes/metaR)*100):0;
-  const vendasColor=pctV>=100?"text-green-400":pctV>=50?"text-yellow-400":"text-white";
-  const reunColor=metaR>0?(pctR>=100?"text-green-400":pctR>=50?"text-yellow-400":"text-red-400"):"text-white";
+  // Team totals
+  const totalVendas = activeUsers.reduce((s, u) => s + u.stats.vendas, 0);
+  const totalRealizadas = activeUsers.reduce((s, u) => s + u.stats.realizadas, 0);
+  // Agendadas: deduplicated by opportunity (only count each opp once)
+  const totalAgendadas = opps.filter(o => SCHEDULED_STAGES.has(o.stage) && o.assigned_to && GHL_USERS[o.assigned_to]).length;
 
-  const ritmo=totalVendas>0&&totalReunioes>0?Math.round(totalReunioes/totalVendas):20;
+  // Ritmo: team-level ratios
+  const ritmoAgendadasPorVenda = totalVendas > 0 ? Math.round(totalAgendadas / totalVendas) : 0;
+  const ritmoRealizadasPorVenda = totalVendas > 0 ? Math.round(totalRealizadas / totalVendas) : 0;
 
-  const cols=consultores.length<=2?"grid-cols-2":consultores.length<=4?"grid-cols-2":consultores.length<=6?"grid-cols-3":"grid-cols-4";
+  // Colors
+  const pctV = metaVendasTotal > 0 ? Math.round((totalVendas / metaVendasTotal) * 100) : 0;
+  const vendasColor = pctV >= 100 ? "text-green-400" : pctV >= 50 ? "text-yellow-400" : "text-white";
 
-  return(
-    <div className="fixed inset-0 bg-[#0f1117] flex flex-col" style={{zIndex:9999}}>
-      <Confetti active={celebrating}/>
-      <SaleBanner visible={celebrating} vendedor={saleInfo.vendedor} valor={saleInfo.valor}/>
+  // Per-user meta (proportional to team meta, split equally)
+  const metaPerUser = activeUsers.length > 0 && metaVendasTotal > 0
+    ? Math.round(metaVendasTotal / activeUsers.length) : 0;
 
-      <Header mes={mes} onClose={()=>navigate("/comercial")}/>
+  const cols = activeUsers.length <= 2 ? "grid-cols-2"
+    : activeUsers.length <= 4 ? "grid-cols-2"
+    : activeUsers.length <= 6 ? "grid-cols-3"
+    : "grid-cols-4";
 
-      <div className="flex-1 p-6 flex flex-col gap-5 overflow-auto">
-        {/* Top stats */}
-        <div className="flex gap-4">
-          <StatCard label="Vendas do Mês" value={totalVendas} sub={metaV>0?`Meta da equipe: ${metaV}`:undefined} color={vendasColor}/>
-          <StatCard label="Apresentações do Mês" value={totalReunioes} sub={metaR>0?`Meta: ${metaR}`:undefined} color={reunColor}/>
-          {totalValor>0
-            ?<StatCard label="Faturamento" value={totalValor.toLocaleString("pt-BR",{style:"currency",currency:"BRL",minimumFractionDigits:0})} color="text-green-400"/>
-            :<StatCard label="Ritmo da Equipe" value={ritmo} sub="apresentações ≈ 1 venda" color={ritmo<=10?"text-green-400":"text-yellow-400"}/>
-          }
+  return (
+    <div className="fixed inset-0 bg-[#0f1117] flex flex-col" style={{ zIndex: 9999 }}>
+      <Confetti active={celebType === "venda"} />
+      <CelebBanner type={celebType} nome={celebNome} valor={celebValor} />
+
+      <Header mes={mes} onClose={() => navigate("/comercial")} />
+
+      <div className="flex-1 p-5 flex flex-col gap-4 overflow-auto">
+        {/* Top stat cards */}
+        <div className="flex gap-3">
+          <StatCard
+            label="Vendas do Mês"
+            value={totalVendas}
+            sub={metaVendasTotal > 0 ? `Meta da equipe: ${metaVendasTotal}` : undefined}
+            color={vendasColor}
+          />
+          <StatCard
+            label="Apresentações do Mês"
+            value={totalRealizadas}
+            color="text-white"
+          />
+          <StatCard
+            label="Reuniões Agendadas"
+            value={totalAgendadas}
+            color="text-sky-400"
+          />
         </div>
 
-        {/* Consultores */}
-        <div className={cn("grid gap-4 flex-1",cols)}>
-          {consultores.map(c=>{
-            const s=byC.get(c.id)||{vendas:0,reunioes:0,valor:0};
-            const metaVendas=Math.round(metaV*((c.pct_meta||0)/100));
-            return<ConsultorCard key={c.id} c={c} vendas={s.vendas} reunioes={s.reunioes} metaVendas={metaVendas} ritmo={ritmo}/>;
-          })}
+        {/* Ritmo cards */}
+        {totalVendas > 0 && (
+          <div className="flex gap-3">
+            <RitmoCard
+              icon="📅"
+              label="Ritmo — Agendadas por Venda"
+              value={ritmoAgendadasPorVenda > 0 ? `${ritmoAgendadasPorVenda} agend. ≈ 1 venda` : "--"}
+            />
+            <RitmoCard
+              icon="🤝"
+              label="Ritmo — Realizadas por Venda"
+              value={ritmoRealizadasPorVenda > 0 ? `${ritmoRealizadasPorVenda} apres. ≈ 1 venda` : "--"}
+            />
+          </div>
+        )}
+
+        {/* Consultant grid */}
+        <div className={cn("grid gap-3 flex-1", cols)}>
+          {activeUsers.map(({ uid, nome, stats }) => (
+            <ConsultorCard
+              key={uid}
+              nome={nome}
+              stats={stats}
+              metaVendas={metaPerUser}
+              ritmoRealizadas={ritmoRealizadasPorVenda || 20}
+            />
+          ))}
         </div>
       </div>
     </div>
