@@ -312,11 +312,10 @@ export default function TV(){
   ).map(uid => ({ uid, nome: GHL_USERS[uid], stats: statsMap.get(uid) || emptyStats() }))
     .sort((a, b) => b.stats.vendas - a.stats.vendas || b.stats.realizadas - a.stats.realizadas);
 
-  // Team totals
+  // Team totals — count each opp once by current stage (cumulative)
   const totalVendas = activeUsers.reduce((s, u) => s + u.stats.vendas, 0);
-  const totalRealizadas = activeUsers.reduce((s, u) => s + u.stats.realizadas, 0);
-  // Agendadas: deduplicated by opportunity (only count each opp once)
-  const totalAgendadas = opps.filter(o => SCHEDULED_STAGES.has(o.stage) && o.assigned_to && GHL_USERS[o.assigned_to]).length;
+  const totalRealizadas = opps.filter(o => REALIZED_STAGES.has(o.stage)).length;
+  const totalAgendadas = opps.filter(o => SCHEDULED_STAGES.has(o.stage)).length;
 
   // Ritmo: team-level ratios
   const ritmoAgendadasPorVenda = totalVendas > 0 ? Math.round(totalAgendadas / totalVendas) : 0;
