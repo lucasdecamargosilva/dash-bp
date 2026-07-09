@@ -4,9 +4,10 @@ import { type DateRange } from "react-day-picker";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { TVMode } from "@/components/comercial/TVMode";
 import {
   Users, CalendarCheck, Calendar, CalendarX, TrendingUp, DollarSign, Plus, Save, Trash2, Pencil, Settings,
-  BarChart3, User, Trophy, AlertTriangle, CheckCircle2, Loader2, UserX, Link2
+  BarChart3, User, Trophy, AlertTriangle, CheckCircle2, Loader2, UserX, Link2, Tv
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -265,6 +266,7 @@ const Comercial = () => {
   const locationId = tenant.ghlLocationId;
   const [section, setSection] = useState<"pre_venda" | "vendas" | "total">("pre_venda");
   const [activeTab, setActiveTab] = useState("geral");
+  const [tvOpen, setTvOpen] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [metaMensal, setMetaMensal] = useState<MetaMensal | null>(null);
   const [diarioData, setDiarioData] = useState<DiarioEntry[]>([]);
@@ -446,6 +448,7 @@ const Comercial = () => {
   const sidebarItems = [
     { key: "geral", label: "Visao Geral", icon: BarChart3 },
     { key: "config", label: "Configuracoes", icon: Settings },
+    { key: "tv", label: "Modo TV", icon: Tv },
   ];
 
   const activeConsultor = consultores.find(c => c.id === activeTab);
@@ -518,12 +521,14 @@ const Comercial = () => {
           {sidebarItems.map(item => (
             <button
               key={item.key}
-              onClick={() => setActiveTab(item.key)}
+              onClick={() => item.key === "tv" ? setTvOpen(true) : setActiveTab(item.key)}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-body font-medium transition-colors text-left w-full",
-                activeTab === item.key
-                  ? "bg-navy-900 dark:bg-sky-600 text-white"
-                  : "text-steel-500 dark:text-muted-foreground hover:bg-steel-50 dark:hover:bg-secondary"
+                item.key === "tv"
+                  ? "text-sky-500 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 border border-sky-200 dark:border-sky-800 mt-2"
+                  : activeTab === item.key
+                    ? "bg-navy-900 dark:bg-sky-600 text-white"
+                    : "text-steel-500 dark:text-muted-foreground hover:bg-steel-50 dark:hover:bg-secondary"
               )}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -555,12 +560,14 @@ const Comercial = () => {
             {sidebarItems.map(item => (
               <button
                 key={item.key}
-                onClick={() => setActiveTab(item.key)}
+                onClick={() => item.key === "tv" ? setTvOpen(true) : setActiveTab(item.key)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-body font-medium whitespace-nowrap",
-                  activeTab === item.key
-                    ? "bg-navy-900 dark:bg-sky-600 text-white"
-                    : "text-steel-500 dark:text-muted-foreground bg-steel-50 dark:bg-secondary"
+                  item.key === "tv"
+                    ? "text-sky-500 dark:text-sky-400 border border-sky-200 dark:border-sky-800"
+                    : activeTab === item.key
+                      ? "bg-navy-900 dark:bg-sky-600 text-white"
+                      : "text-steel-500 dark:text-muted-foreground bg-steel-50 dark:bg-secondary"
                 )}
               >
                 <item.icon className="h-3.5 w-3.5" />
@@ -1402,6 +1409,20 @@ function ConfigPanel({ consultores, metaMensal, mes, ghlCanais, canalConfigs, al
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {tvOpen && (
+        <TVMode
+          consultores={sectionConsultores}
+          byConsultor={totals.byConsultor}
+          totalVendas={totals.totalVendas}
+          totalReunioes={totals.totalReunioes}
+          totalValor={totals.totalValor}
+          meta={meta}
+          mes={mes}
+          locationId={locationId}
+          onClose={() => setTvOpen(false)}
+        />
+      )}
     </div>
   );
 }
