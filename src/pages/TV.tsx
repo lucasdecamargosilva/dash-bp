@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { cn } from "@/lib/utils";
@@ -131,8 +131,9 @@ function Header({mes,onClose}:{mes:string;onClose:()=>void}){
         <span className="text-white font-mono font-black text-4xl tracking-wider">
           {time.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
         </span>
-        <button onClick={onClose} className="text-white/30 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
-          <X className="h-5 w-5"/>
+        <button onClick={onClose} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors">
+          <ArrowLeft className="h-4 w-4"/>
+          Voltar
         </button>
       </div>
     </div>
@@ -294,9 +295,9 @@ export default function TV(){
     return () => { (supabase as any).removeChannel(ch); };
   }, [locationId, celebrate, loadOpps]);
 
-  // Poll every 5 min as fallback
+  // Poll every 30s as fallback
   useEffect(() => {
-    const id = setInterval(loadOpps, 5 * 60 * 1000);
+    const id = setInterval(loadOpps, 30 * 1000);
     return () => clearInterval(id);
   }, [loadOpps]);
 
