@@ -38,8 +38,15 @@ function aggregate(opps: Opp[]): Map<string, UserStats> {
       if (REALIZED_STAGES.has(opp.stage)) s.realizadas++;
       if (opp.stage === "Venda Fechada") { s.vendas++; s.valor += val; }
     }
-    if (opp.assigned_to && GHL_USERS[opp.assigned_to] && SCHEDULED_STAGES.has(opp.stage)) {
-      ensure(opp.assigned_to).agendadas++;
+    if (SCHEDULED_STAGES.has(opp.stage)) {
+      if (opp.assigned_to && GHL_USERS[opp.assigned_to]) {
+        ensure(opp.assigned_to).agendadas++;
+      } else {
+        // No owner: followers act as owners for agendamentos
+        for (const fid of (opp.followers || [])) {
+          if (GHL_USERS[fid]) { ensure(fid).agendadas++; break; }
+        }
+      }
     }
   }
   return map;
