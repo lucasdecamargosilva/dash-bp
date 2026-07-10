@@ -45,10 +45,34 @@ function aggregate(opps: Opp[]): Map<string, UserStats> {
   return map;
 }
 
-// ── Sounds ─────────────────────────────────────────────────────
-function playSound(notes: [number, number][], volume = 0.3) {
+// ── Audio context (shared, unlocked on first click) ────────────
+let _audioCtx: AudioContext | null = null;
+
+function getCtx(): AudioContext | null {
+  if (!_audioCtx) {
+    try { _audioCtx = new AudioContext(); } catch { return null; }
+  }
+  return _audioCtx;
+}
+
+export function unlockAudio() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state === "suspended") ctx.resume();
+  // Play silent buffer to satisfy autoplay policy
   try {
-    const ctx = new AudioContext();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch {}
+}
+
+function playSound(notes: [number, number][], volume = 0.3) {
+  const ctx = getCtx();
+  if (!ctx || ctx.state === "suspended") return;
+  try {
     notes.reduce((t, [f, d]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
@@ -72,16 +96,16 @@ function playApresentacaoSound() {
   playSound([[349.23, 0.14], [440, 0.14], [523.25, 0.14], [659.25, 0.22]], 0.3);
 }
 
-// Venda: epic 5-note fanfare (C5 E5 G5 C6 E6)
+// Venda: epic fanfare with harmony
 function playVendaSound() {
+  const ctx = getCtx();
+  if (!ctx || ctx.state === "suspended") return;
   try {
-    const ctx = new AudioContext();
     const fanfare: [number, number, number][] = [
       [523.25, 0.12, 0.3], [659.25, 0.12, 0.3], [783.99, 0.12, 0.3],
       [1046.5, 0.22, 0.35], [1318.51, 0.5, 0.4],
     ];
     fanfare.reduce((t, [f, d, vol]) => {
-      // Main tone
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
       o.type = "sine"; o.frequency.value = f;
@@ -89,7 +113,6 @@ function playVendaSound() {
       g.gain.linearRampToValueAtTime(vol, t + 0.02);
       g.gain.exponentialRampToValueAtTime(0.001, t + d);
       o.start(t); o.stop(t + d + 0.05);
-      // Harmony (5th above)
       const o2 = ctx.createOscillator(), g2 = ctx.createGain();
       o2.connect(g2); g2.connect(ctx.destination);
       o2.type = "sine"; o2.frequency.value = f * 1.5;
@@ -297,6 +320,7 @@ export default function TV() {
   const [opps, setOpps] = useState<Opp[]>([]);
   const [metaVendasTotal, setMetaVendasTotal] = useState(0);
   const [celebType, setCelebType] = useState<CelebType>(null);
+  const [soundUnlocked, setSoundUnlocked] = useState(false);
   const [celebNome, setCelebNome] = useState("");
   const [celebValor, setCelebValor] = useState(0);
 
@@ -417,7 +441,7 @@ export default function TV() {
   ).map(uid => ({ uid, nome: GHL_USERS[uid], stats: statsMap.get(uid) || emptyStats() }))
     .sort((a, b) => b.stats.vendas - a.stats.vendas || b.stats.realizadas - a.stats.realizadas);
 
-  const totalVendas = activeUsers.reduce((s, u) => s + u.stats.vendas, 0);
+  const totalVendas = opps.filter(o => o.stage === "Venda Fechada").length;
   const totalRealizadas = opps.filter(o => REALIZED_STAGES.has(o.stage)).length;
   const totalAgendadas = opps.filter(o => SCHEDULED_STAGES.has(o.stage)).length;
 
@@ -435,13 +459,27 @@ export default function TV() {
     : activeUsers.length <= 6 ? "grid-cols-3"
     : "grid-cols-4";
 
+  const handlePageClick = () => {
+    if (!soundUnlocked) {
+      unlockAudio();
+      setSoundUnlocked(true);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-[#0f1117] flex flex-col" style={{ zIndex: 9999 }}>
+    <div className="fixed inset-0 bg-[#0f1117] flex flex-col" style={{ zIndex: 9999 }} onClick={handlePageClick}>
       <style>{`
         @keyframes bannerIn { from { opacity:0; transform:scale(0.7) translateY(40px); } to { opacity:1; transform:scale(1) translateY(0); } }
         @keyframes iconBounce { from { transform:scale(0) rotate(-20deg); } 60% { transform:scale(1.3) rotate(10deg); } to { transform:scale(1) rotate(0deg); } }
         @keyframes flashFade { 0% { opacity:1; } 100% { opacity:0; } }
       `}</style>
+
+      {/* Sound unlock hint */}
+      {!soundUnlocked && (
+        <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-white/10 text-white/50 text-xs font-semibold px-3 py-2 rounded-xl cursor-pointer hover:bg-white/20 transition-colors" style={{ zIndex: 10002 }} onClick={handlePageClick}>
+          🔇 Clique para ativar som
+        </div>
+      )}
 
       {/* Celebrations */}
       <ScreenFlash type={celebType} />
