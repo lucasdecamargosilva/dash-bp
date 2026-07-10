@@ -22,7 +22,7 @@ const GHL_USERS: Record<string, string> = {
 const REALIZED_STAGES = new Set(["Reuniao Realizada", "Proposta em Analise", "Venda Fechada"]);
 const SCHEDULED_STAGES = new Set(["Reuniao Agendada", "Reuniao Realizada", "Proposta em Analise", "Venda Fechada"]);
 
-interface Opp { id: string; stage: string; followers: string[]; assigned_to: string | null; monetary_value: number; }
+interface Opp { id: string; stage: string; followers: string[]; assigned_to: string | null; monetary_value: number; last_stage_change_at: string | null; }
 interface UserStats { agendadas: number; realizadas: number; vendas: number; valor: number; }
 
 function emptyStats(): UserStats { return { agendadas: 0, realizadas: 0, vendas: 0, valor: 0 }; }
@@ -284,6 +284,10 @@ function ConsultorCard({ nome, stats, metaVendas, ritmoRealizadas }: {
   );
 }
 
+const CELEB_STAGES = new Set(["Reuniao Agendada", "Reuniao Realizada", "Venda Fechada"]);
+// Window to detect "just arrived" opps (larger than poll interval)
+const RECENT_MS = 90_000;
+
 // ── Main ───────────────────────────────────────────────────────
 export default function TV() {
   const navigate = useNavigate();
@@ -296,14 +300,16 @@ export default function TV() {
   const [celebNome, setCelebNome] = useState("");
   const [celebValor, setCelebValor] = useState(0);
 
+  // prevStages: ONLY updated inside loadOpps after diff check — never from Realtime directly
   const prevStagesRef = useRef(new Map<string, string>());
+  const loadedOnceRef = useRef(false);
   const celebTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const now = new Date();
   const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const fromUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 3, 0, 0));
 
-  // Set page title
   useEffect(() => {
     const prev = document.title;
     document.title = "BP TV";
@@ -323,14 +329,51 @@ export default function TV() {
     if (!locationId) return;
     const { data } = await (supabase as any)
       .from("ghl_pipeline_opportunities")
-      .select("id,stage,followers,assigned_to,monetary_value")
+      .select("id,stage,followers,assigned_to,monetary_value,last_stage_change_at")
       .eq("location_id", locationId)
       .gte("last_stage_change_at", fromUTC.toISOString());
-    if (data) {
-      setOpps(data);
+    if (!data) return;
+
+    const isFirst = !loadedOnceRef.current;
+    loadedOnceRef.current = true;
+
+    if (!isFirst) {
+      const nowMs = Date.now();
+      for (const opp of data) {
+        const prevStage = prevStagesRef.current.get(opp.id);
+        const newStage: string = opp.stage;
+        let fireStage: string | null = null;
+
+        if (prevStage === undefined) {
+          // Opp just entered the monthly filter — celebrate only if very recent change
+          if (CELEB_STAGES.has(newStage)) {
+            const changedAt = opp.last_stage_change_at ? new Date(opp.last_stage_change_at).getTime() : 0;
+            if (nowMs - changedAt < RECENT_MS) fireStage = newStage;
+          }
+        } else if (prevStage !== newStage && CELEB_STAGES.has(newStage)) {
+          fireStage = newStage;
+        }
+
+        if (fireStage) {
+          const followers: string[] = Array.isArray(opp.followers) ? opp.followers : [];
+          const closer = followers.map((f: string) => GHL_USERS[f]).find(Boolean) || null;
+          const owner = opp.assigned_to ? GHL_USERS[opp.assigned_to] : null;
+          const nome = closer || owner || "Equipe";
+          const valor = parseFloat(opp.monetary_value) || 0;
+          if (fireStage === "Reuniao Agendada") celebrate("agendamento", owner || nome);
+          else if (fireStage === "Reuniao Realizada") celebrate("apresentacao", nome);
+          else celebrate("venda", nome, valor);
+        }
+
+        prevStagesRef.current.set(opp.id, newStage);
+      }
+    } else {
+      // First load: just snapshot, no celebrations
       for (const o of data) prevStagesRef.current.set(o.id, o.stage);
     }
-  }, [locationId]);
+
+    setOpps(data);
+  }, [locationId, celebrate]);
 
   useEffect(() => {
     if (!locationId) return;
@@ -341,7 +384,7 @@ export default function TV() {
 
   useEffect(() => { loadOpps(); }, [loadOpps]);
 
-  // Realtime stage change detection
+  // Realtime: debounced trigger — celebration logic lives in loadOpps, not here
   useEffect(() => {
     if (!locationId) return;
     const ch = (supabase as any)
@@ -349,33 +392,16 @@ export default function TV() {
       .on("postgres_changes", {
         event: "*", schema: "public", table: "ghl_pipeline_opportunities",
         filter: `location_id=eq.${locationId}`
-      }, async (payload: any) => {
-        const opp = payload.new as Opp;
-        if (!opp) return;
-        const prevStage = prevStagesRef.current.get(opp.id);
-
-        if (opp.stage !== prevStage) {
-          if (opp.stage === "Reuniao Agendada" && prevStage !== "Reuniao Agendada") {
-            const ownerName = opp.assigned_to ? GHL_USERS[opp.assigned_to] : null;
-            celebrate("agendamento", ownerName || "Equipe");
-          } else if (opp.stage === "Reuniao Realizada" && prevStage !== "Reuniao Realizada") {
-            const followers = opp.followers || [];
-            const closerName = followers.length > 0 ? GHL_USERS[followers[0]] : null;
-            celebrate("apresentacao", closerName || "Equipe");
-          } else if (opp.stage === "Venda Fechada" && prevStage !== "Venda Fechada") {
-            const followers = opp.followers || [];
-            const closerName = followers.length > 0 ? GHL_USERS[followers[0]] : null;
-            celebrate("venda", closerName || "Equipe", parseFloat(opp.monetary_value as any) || 0);
-          }
-        }
-        prevStagesRef.current.set(opp.id, opp.stage);
-        loadOpps();
+      }, () => {
+        // Debounce: wait 400ms after last event burst before querying
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(loadOpps, 400);
       })
       .subscribe();
     return () => { (supabase as any).removeChannel(ch); };
-  }, [locationId, celebrate, loadOpps]);
+  }, [locationId, loadOpps]);
 
-  // Poll every 30s fallback
+  // Poll every 30s as fallback
   useEffect(() => {
     const id = setInterval(loadOpps, 30 * 1000);
     return () => clearInterval(id);
