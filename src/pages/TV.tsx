@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { cn } from "@/lib/utils";
+import bpGroupLogoWhite from "@/assets/bp-group-logo-white.png";
 
-// GHL user ID → name map (same as Comercial.tsx)
 const GHL_USERS: Record<string, string> = {
   "vzPEBQaqgZw6Z2AhUqGQ": "Aline Autoral",
   "HLq1ZteZT3ov44XFhCcQ": "Andre Lima",
@@ -32,14 +32,12 @@ function aggregate(opps: Opp[]): Map<string, UserStats> {
   const ensure = (id: string) => { if (!map.has(id)) map.set(id, emptyStats()); return map.get(id)!; };
   for (const opp of opps) {
     const val = parseFloat(opp.monetary_value as any) || 0;
-    // Followers = closers (realizadas + vendas)
     for (const fid of (opp.followers || [])) {
       if (!GHL_USERS[fid]) continue;
       const s = ensure(fid);
       if (REALIZED_STAGES.has(opp.stage)) s.realizadas++;
       if (opp.stage === "Venda Fechada") { s.vendas++; s.valor += val; }
     }
-    // Owner = SDR (agendadas)
     if (opp.assigned_to && GHL_USERS[opp.assigned_to] && SCHEDULED_STAGES.has(opp.stage)) {
       ensure(opp.assigned_to).agendadas++;
     }
@@ -47,92 +45,174 @@ function aggregate(opps: Opp[]): Map<string, UserStats> {
   return map;
 }
 
-// ── Sound ──────────────────────────────────────────────────────
+// ── Sounds ─────────────────────────────────────────────────────
+function playSound(notes: [number, number][], volume = 0.3) {
+  try {
+    const ctx = new AudioContext();
+    notes.reduce((t, [f, d]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(volume, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.start(t); o.stop(t + d + 0.05);
+      return t + d * 0.85;
+    }, ctx.currentTime + 0.05);
+  } catch {}
+}
+
+// Agendamento: 3 quick ascending pings (C4 E4 G4)
+function playAgendaSound() {
+  playSound([[523.25, 0.12], [659.25, 0.12], [783.99, 0.18]], 0.28);
+}
+
+// Apresentação: smooth warm rise (F4 A4 C5 E5)
+function playApresentacaoSound() {
+  playSound([[349.23, 0.14], [440, 0.14], [523.25, 0.14], [659.25, 0.22]], 0.3);
+}
+
+// Venda: epic 5-note fanfare (C5 E5 G5 C6 E6)
 function playVendaSound() {
   try {
     const ctx = new AudioContext();
-    [[523.25,.12],[659.25,.12],[783.99,.12],[1046.5,.2],[1318.51,.4]].reduce((t,[f,d])=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();
-      o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=f as number;
-      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+(d as number));
-      o.start(t);o.stop(t+(d as number)+.05);return t+(d as number)*.9;
-    }, ctx.currentTime+.05);
+    const fanfare: [number, number, number][] = [
+      [523.25, 0.12, 0.3], [659.25, 0.12, 0.3], [783.99, 0.12, 0.3],
+      [1046.5, 0.22, 0.35], [1318.51, 0.5, 0.4],
+    ];
+    fanfare.reduce((t, [f, d, vol]) => {
+      // Main tone
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.start(t); o.stop(t + d + 0.05);
+      // Harmony (5th above)
+      const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+      o2.connect(g2); g2.connect(ctx.destination);
+      o2.type = "sine"; o2.frequency.value = f * 1.5;
+      g2.gain.setValueAtTime(0, t);
+      g2.gain.linearRampToValueAtTime(vol * 0.3, t + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o2.start(t); o2.stop(t + d + 0.05);
+      return t + d * 0.88;
+    }, ctx.currentTime + 0.05);
   } catch {}
 }
 
-function playAgendaSound() {
-  try {
-    const ctx = new AudioContext();
-    [[440,.1],[554.37,.1],[659.25,.2]].reduce((t,[f,d])=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();
-      o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=f as number;
-      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.25,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+(d as number));
-      o.start(t);o.stop(t+(d as number)+.05);return t+(d as number)*.85;
-    }, ctx.currentTime+.05);
-  } catch {}
-}
+// ── Types ──────────────────────────────────────────────────────
+type CelebType = "venda" | "agendamento" | "apresentacao" | null;
 
 // ── Confetti ───────────────────────────────────────────────────
-const COLORS=["#22c55e","#facc15","#3b82f6","#f97316","#a855f7","#ec4899","#06b6d4"];
-const PARTS=Array.from({length:80},()=>({x:Math.random()*100,c:COLORS[Math.floor(Math.random()*7)],w:6+Math.random()*8,h:4+Math.random()*6,dl:Math.random()*1.2,dr:2.5+Math.random()*2,dx:-30+Math.random()*60,r:Math.random()*360}));
+const CONFETTI_VENDA = ["#22c55e","#facc15","#3b82f6","#f97316","#a855f7","#ec4899","#06b6d4","#ffffff"];
+const CONFETTI_AGENDA = ["#38bdf8","#7dd3fc","#0ea5e9","#bae6fd","#e0f2fe","#ffffff","#93c5fd"];
+const CONFETTI_APRES = ["#a78bfa","#c4b5fd","#8b5cf6","#ddd6fe","#e9d5ff","#f0abfc","#d946ef"];
 
-function Confetti({active}:{active:boolean}){
-  if(!active)return null;
-  return(
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{zIndex:10001}}>
-      <style>{`@keyframes fall{0%{transform:translateY(-20px) translateX(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) translateX(var(--d)) rotate(720deg);opacity:.3}}`}</style>
-      {PARTS.map((p,i)=>(
-        <div key={i} className="absolute top-0" style={{left:`${p.x}%`,width:p.w,height:p.h,background:p.c,borderRadius:2,animation:`fall ${p.dr}s ${p.dl}s ease-in both`,"--d":`${p.dx}px`,transform:`rotate(${p.r}deg)`}as React.CSSProperties}/>
+function makeParticles(colors: string[]) {
+  return Array.from({ length: 80 }, () => ({
+    x: Math.random() * 100,
+    c: colors[Math.floor(Math.random() * colors.length)],
+    w: 6 + Math.random() * 8,
+    h: 4 + Math.random() * 6,
+    dl: Math.random() * 1,
+    dr: 2 + Math.random() * 2,
+    dx: -35 + Math.random() * 70,
+    r: Math.random() * 360,
+  }));
+}
+
+function Confetti({ active, type }: { active: boolean; type: CelebType }) {
+  if (!active || !type) return null;
+  const colors = type === "venda" ? CONFETTI_VENDA : type === "agendamento" ? CONFETTI_AGENDA : CONFETTI_APRES;
+  const parts = makeParticles(colors);
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 10001 }}>
+      <style>{`@keyframes fall{0%{transform:translateY(-20px) translateX(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) translateX(var(--d)) rotate(720deg);opacity:.2}}`}</style>
+      {parts.map((p, i) => (
+        <div key={i} className="absolute top-0" style={{
+          left: `${p.x}%`, width: p.w, height: p.h, background: p.c, borderRadius: 2,
+          animation: `fall ${p.dr}s ${p.dl}s ease-in both`,
+          "--d": `${p.dx}px`, transform: `rotate(${p.r}deg)`,
+        } as React.CSSProperties} />
       ))}
     </div>
   );
 }
 
-// ── Celebration Banner ─────────────────────────────────────────
-type CelebType = "venda" | "agendamento" | null;
+// ── Screen Flash ───────────────────────────────────────────────
+function ScreenFlash({ type }: { type: CelebType }) {
+  if (!type) return null;
+  const color =
+    type === "venda" ? "rgba(34,197,94,0.18)" :
+    type === "agendamento" ? "rgba(14,165,233,0.18)" :
+    "rgba(139,92,246,0.18)";
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 9998, background: color, animation: "flashFade 0.6s ease-out forwards" }}
+    />
+  );
+}
 
-function CelebBanner({type,nome,valor}:{type:CelebType;nome:string;valor:number}){
-  const visible = !!type;
-  const isVenda = type === "venda";
-  return(
-    <div className="fixed inset-0 flex items-center justify-center pointer-events-none transition-all duration-500" style={{zIndex:10000,opacity:visible?1:0}}>
+// ── Celebration Banner ─────────────────────────────────────────
+const CELEB_CONFIG = {
+  venda:       { bg: "bg-green-500",  border: "border-green-300",  icon: "🏆", title: "VENDA FECHADA!",      sub: "" },
+  agendamento: { bg: "bg-sky-500",    border: "border-sky-300",    icon: "📅", title: "REUNIÃO AGENDADA!",   sub: "" },
+  apresentacao:{ bg: "bg-violet-600", border: "border-violet-300", icon: "🤝", title: "APRESENTAÇÃO!",       sub: "" },
+};
+
+function CelebBanner({ type, nome, valor }: { type: CelebType; nome: string; valor: number }) {
+  if (!type) return null;
+  const cfg = CELEB_CONFIG[type];
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center pointer-events-none"
+      style={{ zIndex: 10000, animation: "bannerIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+    >
       <div className={cn(
-        "rounded-3xl px-20 py-12 text-center shadow-2xl transition-all duration-500",
-        isVenda?"bg-green-500":"bg-sky-500",
-        visible?"scale-100":"scale-75"
+        "rounded-3xl px-16 py-10 text-center shadow-2xl border-4",
+        cfg.bg, cfg.border
       )}>
-        <div className="text-8xl mb-4">{isVenda?"🏆":"📅"}</div>
-        <div className="text-white font-black text-5xl tracking-tight mb-3">
-          {isVenda?"VENDA FECHADA!":"REUNIÃO AGENDADA!"}
-        </div>
+        <div className="text-8xl mb-3" style={{ animation: "iconBounce 0.5s ease-out 0.1s both" }}>{cfg.icon}</div>
+        <div className="text-white font-black text-5xl tracking-tight mb-3 drop-shadow-lg">{cfg.title}</div>
         <div className="text-white/90 text-3xl font-bold">{nome}</div>
-        {isVenda&&valor>0&&<div className="text-white text-4xl font-black mt-3">{valor.toLocaleString("pt-BR",{style:"currency",currency:"BRL",minimumFractionDigits:0})}</div>}
+        {type === "venda" && valor > 0 && (
+          <div className="text-white text-4xl font-black mt-3 drop-shadow">
+            {valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ── Header ─────────────────────────────────────────────────────
-const MONTH_NAMES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-function Header({mes,onClose}:{mes:string;onClose:()=>void}){
-  const[time,setTime]=useState(()=>new Date());
-  useEffect(()=>{const id=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(id);},[]);
-  const[year,month]=mes.split("-").map(Number);
-  return(
+function Header({ mes, onClose }: { mes: string; onClose: () => void }) {
+  const [time, setTime] = useState(() => new Date());
+  useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
+  const [year, month] = mes.split("-").map(Number);
+  return (
     <div className="flex items-center px-8 py-4 border-b border-white/10 relative shrink-0">
-      <div className="w-44">
-        <img src="/bp-group-logo-white.png" alt="BP Group" className="h-8 object-contain"/>
+      {/* Logo + BP TV */}
+      <div className="w-48 flex items-center gap-3">
+        <img src={bpGroupLogoWhite} alt="BP Group" className="h-9 object-contain" />
+        <span className="text-white/40 font-black text-sm tracking-widest uppercase border-l border-white/20 pl-3">BP TV</span>
       </div>
+      {/* Month center */}
       <div className="absolute left-1/2 -translate-x-1/2 text-white font-black text-3xl tracking-wide">
-        {MONTH_NAMES[(month||1)-1]}/{year}
+        {MONTH_NAMES[(month || 1) - 1]}/{year}
       </div>
+      {/* Clock + back */}
       <div className="ml-auto flex items-center gap-4">
         <span className="text-white font-mono font-black text-4xl tracking-wider">
-          {time.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+          {time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </span>
         <button onClick={onClose} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors">
-          <ArrowLeft className="h-4 w-4"/>
+          <ArrowLeft className="h-4 w-4" />
           Voltar
         </button>
       </div>
@@ -140,20 +220,20 @@ function Header({mes,onClose}:{mes:string;onClose:()=>void}){
   );
 }
 
-// ── Top Stat Card ──────────────────────────────────────────────
-function StatCard({label,value,sub,color}:{label:string;value:string|number;sub?:string;color?:string}){
-  return(
+// ── Stat Card ──────────────────────────────────────────────────
+function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
+  return (
     <div className="bg-white/5 rounded-2xl p-5 text-center flex-1 flex flex-col gap-1">
       <div className="text-white/50 text-xs font-bold tracking-widest uppercase">{label}</div>
-      <div className={cn("text-7xl font-black tabular-nums leading-none my-1",color||"text-white")}>{value}</div>
-      {sub&&<div className="text-white/40 text-sm font-semibold">{sub}</div>}
+      <div className={cn("text-7xl font-black tabular-nums leading-none my-1", color || "text-white")}>{value}</div>
+      {sub && <div className="text-white/40 text-sm font-semibold">{sub}</div>}
     </div>
   );
 }
 
 // ── Ritmo Card ─────────────────────────────────────────────────
-function RitmoCard({label,value,icon}:{label:string;value:number|string;icon:string}){
-  return(
+function RitmoCard({ label, value, icon }: { label: string; value: number | string; icon: string }) {
+  return (
     <div className="bg-white/5 rounded-xl px-5 py-3 flex items-center gap-3 flex-1">
       <span className="text-2xl">{icon}</span>
       <div>
@@ -165,42 +245,37 @@ function RitmoCard({label,value,icon}:{label:string;value:number|string;icon:str
 }
 
 // ── Consultor Card ─────────────────────────────────────────────
-function ConsultorCard({nome,stats,metaVendas,ritmoRealizadas}:{
-  nome:string; stats:UserStats; metaVendas:number; ritmoRealizadas:number;
-}){
-  const pctV = metaVendas>0?Math.min(100,(stats.vendas/metaVendas)*100):0;
-  const metaReun = ritmoRealizadas*metaVendas;
-  const pctR = metaReun>0?Math.min(100,(stats.realizadas/metaReun)*100):0;
-  const faltam = ritmoRealizadas>0?Math.max(0,ritmoRealizadas-(stats.realizadas%ritmoRealizadas||ritmoRealizadas)):0;
+function ConsultorCard({ nome, stats, metaVendas, ritmoRealizadas }: {
+  nome: string; stats: UserStats; metaVendas: number; ritmoRealizadas: number;
+}) {
+  const pctV = metaVendas > 0 ? Math.min(100, (stats.vendas / metaVendas) * 100) : 0;
+  const metaReun = ritmoRealizadas * metaVendas;
+  const pctR = metaReun > 0 ? Math.min(100, (stats.realizadas / metaReun) * 100) : 0;
+  const faltam = ritmoRealizadas > 0 ? Math.max(0, ritmoRealizadas - (stats.realizadas % ritmoRealizadas || ritmoRealizadas)) : 0;
 
-  return(
+  return (
     <div className="bg-white/5 rounded-2xl p-5 flex flex-col gap-3 border border-white/5">
       <div className="flex items-center justify-between">
         <span className="text-white font-black text-xl leading-tight">{nome}</span>
-        {ritmoRealizadas>0&&<span className="text-white/30 text-xs font-mono shrink-0 ml-2">1 venda ≈ {ritmoRealizadas} apres.</span>}
+        {ritmoRealizadas > 0 && <span className="text-white/30 text-xs font-mono shrink-0 ml-2">1 venda ≈ {ritmoRealizadas} apres.</span>}
       </div>
-
-      {/* Vendas */}
       <div>
         <span className="text-white font-black text-5xl tabular-nums">{stats.vendas}</span>
-        {metaVendas>0&&<span className="text-white/30 text-xl font-bold">/{metaVendas} vendas</span>}
+        {metaVendas > 0 && <span className="text-white/30 text-xl font-bold">/{metaVendas} vendas</span>}
       </div>
       <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
         <div className={cn("h-full rounded-full transition-all duration-1000",
-          pctV>=100?"bg-green-400":pctV>=50?"bg-yellow-400":"bg-red-500"
-        )} style={{width:`${Math.max(pctV,stats.vendas>0?5:0)}%`}}/>
+          pctV >= 100 ? "bg-green-400" : pctV >= 50 ? "bg-yellow-400" : "bg-red-500"
+        )} style={{ width: `${Math.max(pctV, stats.vendas > 0 ? 5 : 0)}%` }} />
       </div>
-
-      {/* Realizadas */}
       <div className="flex items-center gap-1.5 text-yellow-400 text-sm font-semibold">
         <span>🤝</span><span>{stats.realizadas} apresentações no mês</span>
-        {stats.agendadas>0&&<span className="ml-auto text-sky-400">📅 {stats.agendadas} agendadas</span>}
+        {stats.agendadas > 0 && <span className="ml-auto text-sky-400">📅 {stats.agendadas} agendadas</span>}
       </div>
       <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-        <div className="h-full rounded-full bg-sky-500 transition-all duration-1000" style={{width:`${Math.max(pctR,stats.realizadas>0?3:0)}%`}}/>
+        <div className="h-full rounded-full bg-sky-500 transition-all duration-1000" style={{ width: `${Math.max(pctR, stats.realizadas > 0 ? 3 : 0)}%` }} />
       </div>
-
-      {faltam>0&&(
+      {faltam > 0 && (
         <div className="text-white/40 text-xs font-semibold">
           🎯 faltam ~{faltam} para a próxima venda
         </div>
@@ -210,10 +285,10 @@ function ConsultorCard({nome,stats,metaVendas,ritmoRealizadas}:{
 }
 
 // ── Main ───────────────────────────────────────────────────────
-export default function TV(){
+export default function TV() {
   const navigate = useNavigate();
   const { tenant } = useTenant();
-  const locationId = tenant.ghlLocationId||"";
+  const locationId = tenant.ghlLocationId || "";
 
   const [opps, setOpps] = useState<Opp[]>([]);
   const [metaVendasTotal, setMetaVendasTotal] = useState(0);
@@ -222,21 +297,28 @@ export default function TV(){
   const [celebValor, setCelebValor] = useState(0);
 
   const prevStagesRef = useRef(new Map<string, string>());
-  const celebTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const celebTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const now = new Date();
-  const mes = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  // First day of month in UTC+0 (GHL stores UTC, Brazil = UTC-3 so month starts at 03:00 UTC)
+  const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const fromUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 3, 0, 0));
+
+  // Set page title
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "BP TV";
+    return () => { document.title = prev; };
+  }, []);
 
   const celebrate = useCallback((type: CelebType, nome: string, valor = 0) => {
     if (celebTimer.current) clearTimeout(celebTimer.current);
     setCelebType(type); setCelebNome(nome); setCelebValor(valor);
-    if (type === "venda") playVendaSound(); else playAgendaSound();
+    if (type === "venda") playVendaSound();
+    else if (type === "apresentacao") playApresentacaoSound();
+    else playAgendaSound();
     celebTimer.current = setTimeout(() => setCelebType(null), 5500);
   }, []);
 
-  // Load GHL opportunities for current month
   const loadOpps = useCallback(async () => {
     if (!locationId) return;
     const { data } = await (supabase as any)
@@ -246,22 +328,20 @@ export default function TV(){
       .gte("last_stage_change_at", fromUTC.toISOString());
     if (data) {
       setOpps(data);
-      // Init prevStages
       for (const o of data) prevStagesRef.current.set(o.id, o.stage);
     }
   }, [locationId]);
 
-  // Load meta
   useEffect(() => {
     if (!locationId) return;
     (supabase as any).from("comercial_metas").select("meta_vendas")
       .eq("mes", mes).eq("location_id", locationId).single()
-      .then(({ data }: any) => { if (data) setMetaVendasTotal(data.meta_vendas||0); });
+      .then(({ data }: any) => { if (data) setMetaVendasTotal(data.meta_vendas || 0); });
   }, [locationId, mes]);
 
   useEffect(() => { loadOpps(); }, [loadOpps]);
 
-  // Realtime: detect stage changes in ghl_pipeline_opportunities
+  // Realtime stage change detection
   useEffect(() => {
     if (!locationId) return;
     const ch = (supabase as any)
@@ -275,58 +355,52 @@ export default function TV(){
         const prevStage = prevStagesRef.current.get(opp.id);
 
         if (opp.stage !== prevStage) {
-          // New agendamento: stage just became Reuniao Agendada
           if (opp.stage === "Reuniao Agendada" && prevStage !== "Reuniao Agendada") {
             const ownerName = opp.assigned_to ? GHL_USERS[opp.assigned_to] : null;
             celebrate("agendamento", ownerName || "Equipe");
-          }
-          // New venda: stage just became Venda Fechada
-          if (opp.stage === "Venda Fechada" && prevStage !== "Venda Fechada") {
+          } else if (opp.stage === "Reuniao Realizada" && prevStage !== "Reuniao Realizada") {
+            const followers = opp.followers || [];
+            const closerName = followers.length > 0 ? GHL_USERS[followers[0]] : null;
+            celebrate("apresentacao", closerName || "Equipe");
+          } else if (opp.stage === "Venda Fechada" && prevStage !== "Venda Fechada") {
             const followers = opp.followers || [];
             const closerName = followers.length > 0 ? GHL_USERS[followers[0]] : null;
             celebrate("venda", closerName || "Equipe", parseFloat(opp.monetary_value as any) || 0);
           }
         }
         prevStagesRef.current.set(opp.id, opp.stage);
-        // Reload all opps to update counts
         loadOpps();
       })
       .subscribe();
     return () => { (supabase as any).removeChannel(ch); };
   }, [locationId, celebrate, loadOpps]);
 
-  // Poll every 30s as fallback
+  // Poll every 30s fallback
   useEffect(() => {
     const id = setInterval(loadOpps, 30 * 1000);
     return () => clearInterval(id);
   }, [loadOpps]);
 
-  // Aggregate
   const statsMap = aggregate(opps);
 
-  // Build sorted list of active users (by vendas desc, then realizadas desc)
   const activeUsers = Array.from(
     new Set([
-      ...opps.flatMap(o => (o.followers||[]).filter(f => GHL_USERS[f])),
+      ...opps.flatMap(o => (o.followers || []).filter(f => GHL_USERS[f])),
       ...opps.filter(o => o.assigned_to && GHL_USERS[o.assigned_to]).map(o => o.assigned_to!),
     ])
   ).map(uid => ({ uid, nome: GHL_USERS[uid], stats: statsMap.get(uid) || emptyStats() }))
     .sort((a, b) => b.stats.vendas - a.stats.vendas || b.stats.realizadas - a.stats.realizadas);
 
-  // Team totals — count each opp once by current stage (cumulative)
   const totalVendas = activeUsers.reduce((s, u) => s + u.stats.vendas, 0);
   const totalRealizadas = opps.filter(o => REALIZED_STAGES.has(o.stage)).length;
   const totalAgendadas = opps.filter(o => SCHEDULED_STAGES.has(o.stage)).length;
 
-  // Ritmo: team-level ratios
   const ritmoAgendadasPorVenda = totalVendas > 0 ? Math.round(totalAgendadas / totalVendas) : 0;
   const ritmoRealizadasPorVenda = totalVendas > 0 ? Math.round(totalRealizadas / totalVendas) : 0;
 
-  // Colors
   const pctV = metaVendasTotal > 0 ? Math.round((totalVendas / metaVendasTotal) * 100) : 0;
   const vendasColor = pctV >= 100 ? "text-green-400" : pctV >= 50 ? "text-yellow-400" : "text-white";
 
-  // Per-user meta (proportional to team meta, split equally)
   const metaPerUser = activeUsers.length > 0 && metaVendasTotal > 0
     ? Math.round(metaVendasTotal / activeUsers.length) : 0;
 
@@ -337,7 +411,15 @@ export default function TV(){
 
   return (
     <div className="fixed inset-0 bg-[#0f1117] flex flex-col" style={{ zIndex: 9999 }}>
-      <Confetti active={celebType === "venda"} />
+      <style>{`
+        @keyframes bannerIn { from { opacity:0; transform:scale(0.7) translateY(40px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes iconBounce { from { transform:scale(0) rotate(-20deg); } 60% { transform:scale(1.3) rotate(10deg); } to { transform:scale(1) rotate(0deg); } }
+        @keyframes flashFade { 0% { opacity:1; } 100% { opacity:0; } }
+      `}</style>
+
+      {/* Celebrations */}
+      <ScreenFlash type={celebType} />
+      <Confetti active={!!celebType} type={celebType} />
       <CelebBanner type={celebType} nome={celebNome} valor={celebValor} />
 
       <Header mes={mes} onClose={() => navigate("/comercial")} />
@@ -345,16 +427,8 @@ export default function TV(){
       <div className="flex-1 p-5 flex flex-col gap-4 overflow-auto">
         {/* Top stat cards */}
         <div className="flex gap-3">
-          <StatCard
-            label="Reuniões Agendadas"
-            value={totalAgendadas}
-            color="text-sky-400"
-          />
-          <StatCard
-            label="Apresentações do Mês"
-            value={totalRealizadas}
-            color="text-white"
-          />
+          <StatCard label="Reuniões Agendadas" value={totalAgendadas} color="text-sky-400" />
+          <StatCard label="Apresentações do Mês" value={totalRealizadas} color="text-white" />
           <StatCard
             label="Vendas do Mês"
             value={totalVendas}
@@ -363,19 +437,13 @@ export default function TV(){
           />
         </div>
 
-        {/* Ritmo cards */}
+        {/* Ritmo */}
         {totalVendas > 0 && (
           <div className="flex gap-3">
-            <RitmoCard
-              icon="📅"
-              label="Ritmo — Agendadas por Venda"
-              value={ritmoAgendadasPorVenda > 0 ? `${ritmoAgendadasPorVenda} agend. ≈ 1 venda` : "--"}
-            />
-            <RitmoCard
-              icon="🤝"
-              label="Ritmo — Realizadas por Venda"
-              value={ritmoRealizadasPorVenda > 0 ? `${ritmoRealizadasPorVenda} apres. ≈ 1 venda` : "--"}
-            />
+            <RitmoCard icon="📅" label="Ritmo — Agendadas por Venda"
+              value={ritmoAgendadasPorVenda > 0 ? `${ritmoAgendadasPorVenda} agend. ≈ 1 venda` : "--"} />
+            <RitmoCard icon="🤝" label="Ritmo — Realizadas por Venda"
+              value={ritmoRealizadasPorVenda > 0 ? `${ritmoRealizadasPorVenda} apres. ≈ 1 venda` : "--"} />
           </div>
         )}
 
