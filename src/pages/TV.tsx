@@ -96,32 +96,41 @@ function playApresentacaoSound() {
   playSound([[349.23, 0.14], [440, 0.14], [523.25, 0.14], [659.25, 0.22]], 0.3);
 }
 
-// Venda: epic fanfare with harmony
+// Venda: air horn blasts (BRAAAAAP x2)
 function playVendaSound() {
   const ctx = getCtx();
   if (!ctx || ctx.state === "suspended") return;
   try {
-    const fanfare: [number, number, number][] = [
-      [523.25, 0.12, 0.3], [659.25, 0.12, 0.3], [783.99, 0.12, 0.3],
-      [1046.5, 0.22, 0.35], [1318.51, 0.5, 0.4],
-    ];
-    fanfare.reduce((t, [f, d, vol]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.type = "sine"; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t + d);
-      o.start(t); o.stop(t + d + 0.05);
-      const o2 = ctx.createOscillator(), g2 = ctx.createGain();
-      o2.connect(g2); g2.connect(ctx.destination);
-      o2.type = "sine"; o2.frequency.value = f * 1.5;
-      g2.gain.setValueAtTime(0, t);
-      g2.gain.linearRampToValueAtTime(vol * 0.3, t + 0.02);
-      g2.gain.exponentialRampToValueAtTime(0.001, t + d);
-      o2.start(t); o2.stop(t + d + 0.05);
-      return t + d * 0.88;
-    }, ctx.currentTime + 0.05);
+    const blastAt = (startT: number, dur: number) => {
+      // Sawtooth + square layered for that harsh horn buzz
+      const freqs = [233, 466, 699];
+      for (const freq of freqs) {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        const dist = ctx.createWaveShaper();
+        // Gentle waveshaping for slight distortion
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+          const x = (i * 2) / 256 - 1;
+          curve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
+        }
+        dist.curve = curve;
+        o.connect(dist); dist.connect(g); g.connect(ctx.destination);
+        o.type = "sawtooth";
+        // Slight pitch drop for realism
+        o.frequency.setValueAtTime(freq * 1.04, startT);
+        o.frequency.exponentialRampToValueAtTime(freq, startT + 0.08);
+        const vol = freq === 233 ? 0.45 : freq === 466 ? 0.25 : 0.12;
+        g.gain.setValueAtTime(0, startT);
+        g.gain.linearRampToValueAtTime(vol, startT + 0.01);
+        g.gain.setValueAtTime(vol, startT + dur - 0.05);
+        g.gain.exponentialRampToValueAtTime(0.001, startT + dur);
+        o.start(startT); o.stop(startT + dur + 0.05);
+      }
+    };
+    const t0 = ctx.currentTime + 0.04;
+    blastAt(t0, 0.55);        // first blast
+    blastAt(t0 + 0.70, 0.75); // second longer blast
   } catch {}
 }
 
@@ -476,8 +485,12 @@ export default function TV() {
 
       {/* Sound unlock hint */}
       {!soundUnlocked && (
-        <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-white/10 text-white/50 text-xs font-semibold px-3 py-2 rounded-xl cursor-pointer hover:bg-white/20 transition-colors" style={{ zIndex: 10002 }} onClick={handlePageClick}>
-          🔇 Clique para ativar som
+        <div
+          className="fixed top-24 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-amber-500 text-black font-black text-lg px-8 py-4 rounded-2xl shadow-2xl cursor-pointer animate-pulse"
+          style={{ zIndex: 10002 }}
+          onClick={handlePageClick}
+        >
+          🔇 Clique em qualquer lugar para ativar o som
         </div>
       )}
 
