@@ -783,12 +783,18 @@ const Comercial = () => {
                       {(() => {
                         // Merge GHL data with canal configs for current month
                         const mergedMap = new Map<string, any>();
-                        // Add GHL data first (inclui canais sem pessoa como "Lista SHP")
+                        // Standalone canal keys (no " | ") from canal_config — GHL combos under those canals get aggregated
+                        const standaloneCanals = new Set(
+                          canalConfigs.map((cc: any) => (cc.canal || "").trim()).filter(k => k && !k.includes(" | "))
+                        );
+                        // Add GHL combo data, aggregating into standalone canal key when canal_config has one
                         (ghlData?.byCanalPessoa || [])
                           .filter(c => c.total >= 1 && c.canal && c.canal !== "Sem canal")
                           .forEach(c => {
-                            const key = (c.pessoa && c.pessoa !== "Sem pessoa") ? `${c.canal} | ${c.pessoa}` : c.canal;
-                            if (!mergedMap.has(key)) mergedMap.set(key, { ...c, _key: key });
+                            const key = standaloneCanals.has(c.canal)
+                              ? c.canal
+                              : (c.pessoa && c.pessoa !== "Sem pessoa") ? `${c.canal} | ${c.pessoa}` : c.canal;
+                            if (!mergedMap.has(key)) mergedMap.set(key, { ...c, pessoa: key === c.canal ? "" : c.pessoa, _key: key });
                             else { const existing = mergedMap.get(key); Object.keys(c).forEach(k => { if (typeof c[k] === 'number') existing[k] = (existing[k] || 0) + c[k]; }); }
                           });
                         // Add configs that don't have GHL data yet (zeroed)
