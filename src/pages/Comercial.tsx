@@ -657,7 +657,7 @@ const Comercial = () => {
                     {[
                       { label: "Meta Contatos", value: meta.meta_leads, realizado: ghlTotals.contato, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20" },
                       { label: "Meta Agendamentos", value: meta.meta_agendamentos, realizado: ghlTotals.agendada, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" },
-                      { label: "Meta Reun. Realizadas", value: meta.meta_agendamentos, realizado: ghlTotals.realizada, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
+                      { label: "Meta Reun. Realizadas", value: (meta as any).meta_reunioes_realizadas || 0, realizado: ghlTotals.realizada, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
                       { label: "Meta Vendas", value: meta.meta_vendas, realizado: ghlTotals.venda, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" },
                     ].map(m => {
                       const pct = m.value > 0 ? (m.realizado / m.value) * 100 : 0;
@@ -685,7 +685,7 @@ const Comercial = () => {
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
                     <SummaryCard label="Conexoes" value={ghlTotals.conexao} meta={0} icon={Link2} color="text-sky-700 dark:text-sky-300" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={(meta as any).meta_reunioes_realizadas || 0} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                     <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
@@ -698,7 +698,7 @@ const Comercial = () => {
                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 animate-fade-up delay-2">
                       <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
                       <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
-                      <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                      <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={(meta as any).meta_reunioes_realizadas || 0} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                       <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                       <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
                     </div>
@@ -765,7 +765,7 @@ const Comercial = () => {
                     <SummaryCard label="Total Leads" value={ghlTotals.contato} meta={meta.meta_leads} icon={Users} color="text-sky-600 dark:text-sky-400" />
                     <SummaryCard label="Conexoes" value={ghlTotals.conexao} meta={0} icon={Link2} color="text-sky-700 dark:text-sky-300" />
                     <SummaryCard label="Reunioes Agendadas" value={ghlTotals.agendada} meta={meta.meta_agendamentos} icon={CalendarCheck} color="text-amber-600 dark:text-amber-400" />
-                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={meta.meta_agendamentos} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
+                    <SummaryCard label="Reunioes Realizadas" value={ghlTotals.realizada} meta={(meta as any).meta_reunioes_realizadas || 0} icon={Calendar} color="text-violet-600 dark:text-violet-400" />
                     <SummaryCard label="No Show" value={ghlTotals.noShow} meta={0} icon={CalendarX} color="text-red-600 dark:text-red-400" />
                     <SummaryCard label="Vendas" value={ghlTotals.venda} meta={meta.meta_vendas} icon={TrendingUp} color="text-emerald-600 dark:text-emerald-400" />
                     <SummaryCard label="Faturamento" value={ghlTotals.faturamento} meta={meta.meta_faturamento} icon={DollarSign} color="text-emerald-600 dark:text-emerald-400" isCurrency />
