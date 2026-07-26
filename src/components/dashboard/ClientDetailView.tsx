@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { EditableInput } from "@/components/ui/editable-input";
 import { useDashboard } from "@/context/DashboardContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useTenant } from "@/context/TenantContext";
 import { useMonthlyChannels } from "@/hooks/useMonthlyChannels";
 import { 
   Users, 
@@ -43,6 +44,7 @@ interface ClientDetailViewProps {
 
 export function ClientDetailView({ client, onBack }: ClientDetailViewProps) {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [showAddChannelDialog, setShowAddChannelDialog] = useState(false);
   const [showMonthFilterDialog, setShowMonthFilterDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -177,20 +179,21 @@ export function ClientDetailView({ client, onBack }: ClientDetailViewProps) {
 
   useEffect(() => {
     const loadHistoricalData = async () => {
-      if (user) {
-        try {
-          const { getHistoricalDataForClient } = await import('@/data/acquisition');
-          const data = await getHistoricalDataForClient(client.id);
-          setHistoricalData(data);
-        } catch (error) {
-          console.error('Error loading historical data:', error);
-          setHistoricalData([]);
-        }
+      // sem o location o filtro ia com undefined e a serie voltava vazia —
+      // era por isso que o grafico deste cliente aparecia em branco
+      if (!user || !tenant.ghlLocationId) return;
+      try {
+        const { getHistoricalDataForClient } = await import('@/data/acquisition');
+        const data = await getHistoricalDataForClient(client.id, tenant.ghlLocationId);
+        setHistoricalData(data);
+      } catch (error) {
+        console.error('Error loading historical data:', error);
+        setHistoricalData([]);
       }
     };
 
     loadHistoricalData();
-  }, [client.id, user, selectedMonth]);
+  }, [client.id, user, tenant.ghlLocationId, selectedMonth]);
 
   const revenueData = historicalData;
   
