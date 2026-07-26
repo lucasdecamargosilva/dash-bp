@@ -81,7 +81,7 @@ export default function Painel() {
     const own = new Set(roles.filter((r) => r.member_id === memberId && r.role !== "super").map((r) => r.channel_id));
     quotas.filter((q) => q.member_id === memberId).forEach((q) => own.add(q.channel_id));
     return channels
-      .filter((c) => own.has(c.id))
+      .filter((c) => c.active && own.has(c.id))
       .map((c) => {
         const items = [
           ...(freq === "d"
@@ -172,7 +172,7 @@ export default function Painel() {
           <MinhaVisao
             target={target!} isHead={canManage} members={members} viewAs={viewAs} setViewAs={setViewAs}
             freq={freq} setFreq={setFreq} groups={groupsFor(targetId)}
-            supervised={channels.filter((c) => roles.some((r) => r.member_id === targetId && r.channel_id === c.id && r.role === "super"))}
+            supervised={channels.filter((c) => c.active && roles.some((r) => r.member_id === targetId && r.channel_id === c.id && r.role === "super"))}
             roles={roles} tasks={tasks} quotas={quotas}
             isDone={(t, id) => isDoneFor(targetId, t, id)}
             flip={(t, id) => flip(targetId, t, id)}

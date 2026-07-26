@@ -258,6 +258,9 @@ function Canais({ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }
                   <Segmented value={c.is_presales ? "sim" : "nao"} size="sm"
                     onChange={(v) => doUpdate("panel_channels", c.id, { is_presales: v === "sim" })}
                     options={[{ id: "nao", label: "Comum" }, { id: "sim", label: "Pré-venda" }]} />
+                  <Segmented value={c.active ? "on" : "off"} size="sm"
+                    onChange={(v) => doUpdate("panel_channels", c.id, { active: v === "on" })}
+                    options={[{ id: "on", label: "Em operação" }, { id: "off", label: "Encerrado" }]} />
                   <span className="font-body text-[11px] text-steel-400">
                     {roles.filter((r: any) => r.channel_id === c.id).length} resp · {tasks.filter((t: any) => t.channel_id === c.id).length} ativ
                   </span>

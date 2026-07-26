@@ -53,7 +53,7 @@ export default function Canais({
       </div>
 
       {(Object.keys(LAYERS) as (keyof typeof LAYERS)[]).map((lk) => {
-        const cs = channels.filter((c) => c.layer === lk);
+        const cs = channels.filter((c) => c.layer === lk && c.active);
         if (!cs.length) return null;
         return (
           <div key={lk}>
@@ -107,6 +107,37 @@ export default function Canais({
           </div>
         );
       })}
+
+      {/* encerrados ficam a parte: nao cobram rotina, mas o historico segue neles */}
+      {channels.some((c) => !c.active) && (
+        <div className="pt-2">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="font-body text-[10px] font-bold uppercase tracking-wider text-steel-300">Encerrados</span>
+            <span className="font-body text-xs text-steel-300">Fora da operação — o histórico continua contando</span>
+            <span className="h-px flex-1 bg-steel-100 dark:bg-border" />
+          </div>
+          <div className="space-y-2">
+            {channels.filter((c) => !c.active).map((c) => {
+              const r = realizado.data?.byChannel.get(c.id);
+              return (
+                <Row key={c.id} onClick={() => setDetail(c.id)} className="opacity-60">
+                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm bg-steel-300" />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-body text-sm font-bold text-steel-400 dark:text-muted-foreground">{c.name}</span>
+                    <span className="block font-body text-[11px] text-steel-300">sai de operação</span>
+                  </span>
+                  {r && (
+                    <span className="hidden text-right sm:block">
+                      <span className="block font-mono text-sm font-bold tabular-nums text-steel-400">{nf(r.opps)}</span>
+                      <span className="block font-body text-[9px] uppercase tracking-wide text-steel-300">opps no mês</span>
+                    </span>
+                  )}
+                </Row>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,6 +22,9 @@ export interface PanelChannel {
   layer: Layer;
   is_presales: boolean;
   is_draft: boolean;
+  /** Canal encerrado continua existindo — o historico do pipeline aponta para
+   *  ele — mas sai da operacao: nao cobra rotina nem entra no cumprimento. */
+  active: boolean;
   meta: string | null;
   sort_order: number;
 }

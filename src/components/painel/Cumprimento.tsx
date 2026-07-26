@@ -29,11 +29,13 @@ export default function Cumprimento({
     ...tasks.filter((t: any) => t.channel_id === channelId && t.freq === freq).map((t: any) => ({ k: "task" as const, id: t.id })),
   ];
 
+  const ativo = (channelId: string) => channels.find((c) => c.id === channelId)?.active !== false;
+
   /** Uma linha por (pessoa, canal) — a unidade real de responsabilidade. */
   const cells = useMemo(() => {
     const out: { memberId: string; channelId: string; done: number; total: number }[] = [];
     for (const r of roles) {
-      if (r.role === "super") continue;
+      if (r.role === "super" || !ativo(r.channel_id)) continue;
       const its = itemsFor(r.member_id, r.channel_id);
       if (!its.length) continue;
       out.push({
@@ -46,6 +48,7 @@ export default function Cumprimento({
     // cotas em canal onde a pessoa não tem papel formal também contam
     for (const q of quotas) {
       if (freq !== "d") break;
+      if (!ativo(q.channel_id)) continue;
       if (out.some((c) => c.memberId === q.member_id && c.channelId === q.channel_id)) continue;
       const its = itemsFor(q.member_id, q.channel_id);
       if (!its.length) continue;
