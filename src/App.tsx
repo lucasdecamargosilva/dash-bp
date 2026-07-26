@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Pipeline from "./pages/Pipeline";
 import Comercial from "./pages/Comercial";
+import Painel from "./pages/Painel";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -41,6 +42,11 @@ const App = () => (
               <Route path="/comercial" element={
                 <ProtectedRoute>
                   <Comercial />
+                </ProtectedRoute>
+              } />
+              <Route path="/painel" element={
+                <ProtectedRoute>
+                  <Painel />
                 </ProtectedRoute>
               } />
               <Route path="/admin" element={
