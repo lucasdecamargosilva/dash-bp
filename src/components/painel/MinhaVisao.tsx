@@ -33,7 +33,8 @@ export default function MinhaVisao({
 }) {
   // Quem acumula os dois papéis (o caso do Oda) escolhe o que quer ver.
   const hasOperation = groups.length > 0;
-  const hasTeam = isHead && supervised.length > 0;
+  // basta acompanhar um canal para ter time — nao precisa ser head global
+  const hasTeam = supervised.length > 0;
   const [mode, setMode] = useState<"operacao" | "time">(hasOperation ? "operacao" : "time");
   const [open, setOpen] = useState<string | null>(groups[0]?.channel.id ?? null);
 

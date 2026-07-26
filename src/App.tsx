@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Pipeline from "./pages/Pipeline";
 import Comercial from "./pages/Comercial";
 import Painel from "./pages/Painel";
+import Conta from "./pages/Conta";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,11 @@ const App = () => (
               <Route path="/painel" element={
                 <ProtectedRoute>
                   <Painel />
+                </ProtectedRoute>
+              } />
+              <Route path="/conta" element={
+                <ProtectedRoute>
+                  <Conta />
                 </ProtectedRoute>
               } />
               <Route path="/admin" element={

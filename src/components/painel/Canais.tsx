@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, Flame, Users, ListChecks, Gauge, TrendingUp } from "lucide-react";
+import { ChevronLeft, Flame, Users, ListChecks, Gauge, Plus, Trash2, Pencil, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import {
-  LAYERS, FREQ_LABEL, useRealizado,
+  LAYERS, FREQ_LABEL, useRealizado, usePanelMutation,
   type Freq, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, LAYER_TEXT, Label, RoleBadge, Row, SectionTitle, Segmented, brl, nf } from "./shared";
 
 export default function Canais({
-  locationId, channels, roles, members, tasks, quotas, detail, setDetail, freq, setFreq, month,
+  locationId, channels, roles, members, tasks, quotas, detail, setDetail, freq, setFreq, month, meId,
 }: {
   locationId: string;
   channels: PanelChannel[];
@@ -21,16 +24,20 @@ export default function Canais({
   freq: Freq;
   setFreq: (f: Freq) => void;
   month: string;
+  meId: string;
 }) {
   const realizado = useRealizado(locationId, month);
 
   if (detail) {
     const c = channels.find((x) => x.id === detail);
     if (!c) return null;
+    // quem acompanha o canal manda na rotina dele
+    const podeEditar = roles.some((r: any) => r.member_id === meId && r.channel_id === c.id && r.role === "super");
     return (
       <Detalhe
         c={c} roles={roles} members={members} tasks={tasks} quotas={quotas}
         real={realizado.data?.byChannel.get(c.id)} month={month} onBack={() => setDetail(null)}
+        podeEditar={podeEditar} locationId={locationId}
       />
     );
   }
@@ -104,10 +111,29 @@ export default function Canais({
   );
 }
 
-function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack }: any) {
+function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEditar, locationId }: any) {
   const rs = roles.filter((r: any) => r.channel_id === c.id);
   const qs = quotas.filter((q: any) => q.channel_id === c.id);
   const cota = qs.reduce((a: number, q: any) => a + q.per_day, 0);
+  const { create, remove } = usePanelMutation(locationId);
+  const { toast } = useToast();
+  const [editando, setEditando] = useState(false);
+  const [novo, setNovo] = useState("");
+  const [novaFreq, setNovaFreq] = useState<Freq>("d");
+
+  const addTarefa = () => {
+    if (!novo.trim()) return;
+    create.mutate(
+      { table: "panel_tasks", values: { channel_id: c.id, freq: novaFreq, title: novo.trim(), sort_order: tasks.filter((t: any) => t.channel_id === c.id && t.freq === novaFreq).length + 1 } },
+      { onSuccess: () => { toast({ title: "Atividade adicionada" }); setNovo(""); },
+        onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }) }
+    );
+  };
+  const delTarefa = (id: string) =>
+    remove.mutate({ table: "panel_tasks", id }, {
+      onSuccess: () => toast({ title: "Atividade removida" }),
+      onError: (e: any) => toast({ title: "Não consegui remover", description: e.message, variant: "destructive" }),
+    });
 
   return (
     <div className="space-y-4">
@@ -187,9 +213,19 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack }: any)
           </div>
 
           <div>
-            <p className="mb-2 flex items-center gap-1.5 font-body text-[10px] font-bold uppercase tracking-wider text-steel-400">
-              <ListChecks className="h-3.5 w-3.5" /> Rotina · {tasks.filter((t: any) => t.channel_id === c.id).length} atividades
-            </p>
+            <div className="mb-2 flex items-center gap-2">
+              <p className="flex items-center gap-1.5 font-body text-[10px] font-bold uppercase tracking-wider text-steel-400">
+                <ListChecks className="h-3.5 w-3.5" /> Rotina · {tasks.filter((t: any) => t.channel_id === c.id).length} atividades
+              </p>
+              {podeEditar && (
+                <button onClick={() => setEditando(!editando)}
+                  className={cn("ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wide transition-colors",
+                    editando ? "bg-sky-500 text-white" : "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300")}>
+                  {editando ? <><Check className="h-3 w-3" /> pronto</> : <><Pencil className="h-3 w-3" /> editar</>}
+                </button>
+              )}
+            </div>
+
             {(["d", "s", "m"] as Freq[]).map((f) => {
               const its = tasks.filter((t: any) => t.channel_id === c.id && t.freq === f);
               if (!its.length) return null;
@@ -198,16 +234,45 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack }: any)
                   <p className="mb-1 font-body text-[10px] font-bold uppercase tracking-wide text-sky-600 dark:text-sky-400">{FREQ_NAME[f]} · {its.length}</p>
                   <ul className="space-y-0.5">
                     {its.map((t: any) => (
-                      <li key={t.id} className="flex gap-2 font-body text-sm text-navy-900 dark:text-foreground">
-                        <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-steel-300" />{t.title}
+                      <li key={t.id} className="group flex items-start gap-2 font-body text-sm text-navy-900 dark:text-foreground">
+                        <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-steel-300" />
+                        <span className="flex-1">{t.title}</span>
+                        {editando && (
+                          <button onClick={() => delTarefa(t.id)} title="Remover atividade"
+                            className="mt-0.5 text-steel-300 transition-colors hover:text-red-600">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
                 </div>
               );
             })}
-            {tasks.filter((t: any) => t.channel_id === c.id).length === 0 && (
-              <p className="font-body text-xs italic text-steel-400">Sem rotina definida. Cadastre em <b>Configurar → Atividades</b>.</p>
+
+            {tasks.filter((t: any) => t.channel_id === c.id).length === 0 && !editando && (
+              <p className="font-body text-xs italic text-steel-400">
+                Sem rotina definida.{podeEditar ? " Toque em editar para cadastrar." : " Peça ao head do canal para cadastrar."}
+              </p>
+            )}
+
+            {editando && (
+              <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/50 p-3 dark:border-sky-500/30 dark:bg-sky-500/5">
+                <Label>Nova atividade</Label>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <Input value={novo} onChange={(e) => setNovo(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addTarefa()}
+                    placeholder="Ex.: 20 ligações" className="h-8 min-w-[150px] flex-1 font-body text-xs" />
+                  <Segmented<Freq> value={novaFreq} onChange={setNovaFreq} size="sm"
+                    options={[{ id: "d", label: "Dia" }, { id: "s", label: "Semana" }, { id: "m", label: "Mês" }]} />
+                  <Button size="sm" className="h-8 gap-1 font-body text-xs" onClick={addTarefa}>
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </Button>
+                </div>
+                <p className="mt-2 font-body text-[10px] text-steel-400 dark:text-muted-foreground">
+                  Você acompanha este canal, então pode mudar a rotina dele.
+                </p>
+              </div>
             )}
           </div>
         </div>

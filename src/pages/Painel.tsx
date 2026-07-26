@@ -52,8 +52,13 @@ export default function Painel() {
   useEffect(() => { if (meId) localStorage.setItem("panel-me", meId); }, [meId]);
 
   const me = members.find((m) => m.id === meId);
+  // dois tipos de chefia: head global (administra tudo) e head de canal
+  // (acompanha canais especificos). Quem acompanha algum canal ja precisa
+  // enxergar o time e cobrar o combinado, mesmo sem ser head global.
   const isHead = !!me?.is_head;
-  const targetId = isHead && viewAs ? viewAs : meId;
+  const supervisesAny = roles.some((r) => r.member_id === meId && r.role === "super");
+  const canManage = isHead || supervisesAny;
+  const targetId = canManage && viewAs ? viewAs : meId;
   const target = members.find((m) => m.id === targetId);
 
   // um Set por (pessoa, item) — o check é do período corrente de cada frequência
@@ -117,13 +122,14 @@ export default function Painel() {
   const NAV: { id: View; label: string; icon: any }[] = [
     { id: "minha", label: "Minha visão", icon: User },
     { id: "canais", label: "Canais", icon: LayoutGrid },
-    ...(isHead
+    // quem acompanha canal cobra o combinado; só o head global configura
+    ...(canManage
       ? [
           { id: "cumprimento" as View, label: "Cumprimento", icon: CheckSquare },
           { id: "time" as View, label: "Time & Metas", icon: BarChart3 },
-          { id: "config" as View, label: "Configurar", icon: Settings },
         ]
       : []),
+    ...(isHead ? [{ id: "config" as View, label: "Configurar", icon: Settings }] : []),
   ];
 
   return (
@@ -164,7 +170,7 @@ export default function Painel() {
           </Card>
         ) : view === "minha" ? (
           <MinhaVisao
-            target={target!} isHead={isHead} members={members} viewAs={viewAs} setViewAs={setViewAs}
+            target={target!} isHead={canManage} members={members} viewAs={viewAs} setViewAs={setViewAs}
             freq={freq} setFreq={setFreq} groups={groupsFor(targetId)}
             supervised={channels.filter((c) => roles.some((r) => r.member_id === targetId && r.channel_id === c.id && r.role === "super"))}
             roles={roles} tasks={tasks} quotas={quotas}
@@ -178,7 +184,7 @@ export default function Painel() {
         ) : view === "canais" ? (
           <CanaisView locationId={locationId} channels={channels} roles={roles} members={members}
             tasks={tasks} quotas={quotas} detail={channelDetail} setDetail={setChannelDetail}
-            freq={freq} setFreq={setFreq} month={month} />
+            freq={freq} setFreq={setFreq} month={month} meId={meId} />
         ) : view === "time" ? (
           <TimeMetas locationId={locationId} month={month} setMonth={setMonth} channels={channels} members={members} />
         ) : (

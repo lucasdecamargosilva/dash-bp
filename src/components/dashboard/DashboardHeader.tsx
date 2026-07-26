@@ -83,9 +83,13 @@ export function DashboardHeader() {
               })}
             </div>
 
-            <span className="hidden sm:block text-xs font-body text-navy-300 dark:text-steel-400 truncate max-w-[200px] mr-1">
+            <button
+              onClick={() => navigate("/conta")}
+              title="Minha conta"
+              className="hidden sm:block max-w-[200px] truncate rounded px-1.5 py-1 text-xs font-body text-navy-300 dark:text-steel-400 hover:text-white hover:bg-white/10 transition-colors mr-1"
+            >
               {user?.email}
-            </span>
+            </button>
 
             <Button
               variant="ghost"
