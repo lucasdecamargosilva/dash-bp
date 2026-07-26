@@ -1,25 +1,32 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2, Users, LayoutGrid, ListChecks, Gauge, Link2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Users, LayoutGrid, ListChecks, Gauge, Link2, AlertTriangle, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  usePanelMutation, usePanelMaps, useSaveMap,
+  usePanelMutation, usePanelMaps, useSaveMap, usePanelGoals, useSaveGoal,
   LAYERS, FREQ_LABEL, type Freq, type Layer, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, Label, RoleBadge, SectionTitle, Segmented } from "./shared";
 
-type Sec = "pessoas" | "canais" | "atividades" | "cotas" | "vinculos";
+type Sec = "pessoas" | "canais" | "atividades" | "metas" | "cotas" | "vinculos";
 
 const SECOES: { id: Sec; label: string; icon: any; hint: string }[] = [
   { id: "pessoas", label: "Pessoas", icon: Users, hint: "Quem é do time, quem é head e o que cada um opera" },
   { id: "canais", label: "Canais", icon: LayoutGrid, hint: "Criar, editar e remover canais de aquisição" },
   { id: "atividades", label: "Atividades", icon: ListChecks, hint: "A rotina de cada canal — diária, semanal e mensal" },
+  { id: "metas", label: "Metas do mês", icon: Target, hint: "O número que cada canal precisa entregar no ciclo" },
   { id: "cotas", label: "Cotas", icon: Gauge, hint: "Volume diário de prospecção por conta" },
   { id: "vinculos", label: "Vínculos", icon: Link2, hint: "Ligar os nomes do CRM aos canais e pessoas do painel" },
 ];
+
+const MES_NOME = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const rotuloMes = (c: string) => {
+  const [y, m] = c.split("-");
+  return `${MES_NOME[+m - 1]}/${y.slice(2)}`;
+};
 
 export default function Configurar({ locationId, channels, members, roles, tasks, quotas }: {
   locationId: string;
@@ -65,6 +72,7 @@ export default function Configurar({ locationId, channels, members, roles, tasks
       {sec === "pessoas" && <Pessoas {...{ members, roles, channels, doCreate, doUpdate, doRemove }} />}
       {sec === "canais" && <Canais {...{ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }} />}
       {sec === "atividades" && <Atividades {...{ channels, tasks, doCreate, doRemove }} />}
+      {sec === "metas" && <Metas locationId={locationId} channels={channels} />}
       {sec === "cotas" && <Cotas {...{ channels, members, quotas, doCreate, doRemove }} />}
       {sec === "vinculos" && <Vinculos locationId={locationId} channels={channels} members={members} />}
     </div>
@@ -349,6 +357,113 @@ function Atividades({ channels, tasks, doCreate, doRemove }: any) {
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------- metas */
+/**
+ * Meta por canal e por mês. Fica separada do canal de propósito: guardada no
+ * canal, virar o mês apagaria a referência anterior e não daria para comparar
+ * ciclos nem cobrar o que foi combinado no mês passado.
+ */
+function Metas({ locationId, channels }: { locationId: string; channels: PanelChannel[] }) {
+  const meses = useMemo(() => {
+    const out: string[] = [];
+    const d = new Date();
+    for (let i = 1; i >= -6; i--) {
+      const x = new Date(d.getFullYear(), d.getMonth() + i, 1);
+      out.push(x.toISOString().slice(0, 7));
+    }
+    return out;
+  }, []);
+  const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7));
+  const goals = usePanelGoals(locationId, mes);
+  const save = useSaveGoal(locationId);
+  const { toast } = useToast();
+
+  const doSave = (channelId: string, campo: string, valor: string) => {
+    const atual = goals.data?.find((g) => g.channel_id === channelId);
+    const n = valor.trim() === "" ? null : Number(valor);
+    if (n !== null && Number.isNaN(n)) return;
+    save.mutate(
+      { ...(atual ?? {}), channel_id: channelId, competencia: mes, [campo]: n } as any,
+      { onSuccess: () => toast({ title: "Meta salva" }),
+        onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }) }
+    );
+  };
+
+  const ativos = channels.filter((c) => c.active);
+  const totais = (ativos.map((c) => goals.data?.find((g) => g.channel_id === c.id)) ?? [])
+    .reduce((a, g) => ({
+      contatos: a.contatos + (g?.contatos ?? 0), reunioes: a.reunioes + (g?.reunioes ?? 0),
+      propostas: a.propostas + (g?.propostas ?? 0), vendas: a.vendas + (g?.vendas ?? 0),
+    }), { contatos: 0, reunioes: 0, propostas: 0, vendas: 0 });
+
+  return (
+    <div className="space-y-3">
+      <Card className="flex flex-wrap items-center gap-3 p-4">
+        <Label>Ciclo</Label>
+        <Select value={mes} onValueChange={setMes}>
+          <SelectTrigger className="h-8 w-[120px] font-body text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {meses.map((m) => <SelectItem key={m} value={m} className="font-body text-xs">{rotuloMes(m)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="ml-auto flex flex-wrap gap-4">
+          {[["Contatos", totais.contatos], ["Reuniões", totais.reunioes], ["Propostas", totais.propostas], ["Vendas", totais.vendas]].map(([l, v]) => (
+            <div key={l as string} className="text-right">
+              <p className="font-mono text-base font-bold tabular-nums text-navy-900 dark:text-foreground">{v as number}</p>
+              <Label>{l as string}</Label>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {goals.isLoading ? (
+        <EmptyState>Carregando metas…</EmptyState>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto bp-scroll">
+            <table className="w-full min-w-[560px]">
+              <thead>
+                <tr className="border-b border-steel-100 bg-steel-50/50 dark:border-border dark:bg-secondary/30">
+                  {["Canal", "Contatos", "Reuniões", "Propostas", "Vendas"].map((h, i) => (
+                    <th key={h} className={cn("px-3 py-2 font-body text-[10px] font-bold uppercase tracking-wider text-steel-400", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ativos.map((c) => {
+                  const g = goals.data?.find((x) => x.channel_id === c.id);
+                  return (
+                    <tr key={c.id} className="border-b border-steel-50 last:border-0 dark:border-border/40">
+                      <td className="px-3 py-1.5">
+                        <span className="flex items-center gap-2 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
+                          <span className={cn("h-2 w-2 rounded-sm", LAYER_COLOR[c.layer])} />{c.name}
+                        </span>
+                      </td>
+                      {(["contatos", "reunioes", "propostas", "vendas"] as const).map((campo) => (
+                        <td key={campo} className="px-2 py-1.5 text-right">
+                          <Input
+                            type="number" min="0" defaultValue={g?.[campo] ?? ""}
+                            onBlur={(e) => { if (String(g?.[campo] ?? "") !== e.target.value) doSave(c.id, campo, e.target.value); }}
+                            className="ml-auto h-7 w-[74px] text-right font-mono text-xs tabular-nums"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+      <p className="cfg-hint font-body text-[11px] text-steel-400 dark:text-muted-foreground">
+        As metas de agosto já nasceram com o realizado de julho como piso — ajuste o que for subir.
+        Em <b>Time &amp; Metas</b> elas aparecem lado a lado com o realizado do mês.
+      </p>
     </div>
   );
 }

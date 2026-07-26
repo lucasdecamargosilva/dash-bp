@@ -99,6 +99,81 @@ export function periodKey(freq: Freq, ref = new Date()): string {
   return `${x.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+/** Anda no tempo mantendo a frequência: um dia, uma semana ou um mês por vez. */
+export function shiftPeriod(freq: Freq, ref: Date, delta: number): Date {
+  const d = new Date(ref);
+  if (freq === "d") d.setDate(d.getDate() + delta);
+  else if (freq === "s") d.setDate(d.getDate() + delta * 7);
+  else d.setMonth(d.getMonth() + delta);
+  return d;
+}
+
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/** Rótulo curto do período — "hoje", "seg, 21 jul", "semana 30", "agosto/26". */
+export function periodLabel(freq: Freq, ref: Date): string {
+  const hoje = new Date();
+  if (freq === "d") {
+    const mesmoDia = ref.toDateString() === hoje.toDateString();
+    if (mesmoDia) return "hoje";
+    const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+    if (ref.toDateString() === ontem.toDateString()) return "ontem";
+    return `${DIAS[ref.getDay()]}, ${ref.getDate()} ${MESES[ref.getMonth()]}`;
+  }
+  if (freq === "s") {
+    const k = periodKey("s", ref);
+    return periodKey("s", hoje) === k ? "esta semana" : `semana ${k.split("-W")[1]}`;
+  }
+  const mesmoMes = ref.getFullYear() === hoje.getFullYear() && ref.getMonth() === hoje.getMonth();
+  return mesmoMes ? "este mês" : `${MESES[ref.getMonth()]}/${String(ref.getFullYear()).slice(2)}`;
+}
+
+/** Período de referência é o corrente? Usado para não deixar avançar no futuro. */
+export function isCurrentPeriod(freq: Freq, ref: Date): boolean {
+  return periodKey(freq, ref) === periodKey(freq, new Date());
+}
+
+export interface PanelGoal {
+  id: string;
+  channel_id: string;
+  competencia: string;
+  contatos: number | null;
+  reunioes: number | null;
+  propostas: number | null;
+  vendas: number | null;
+  faturamento: number | null;
+  nota: string | null;
+}
+
+/** Metas do ciclo, por canal e por mês. */
+export function usePanelGoals(locationId: string, competencia: string) {
+  return useQuery({
+    queryKey: ["panel-goals", locationId, competencia],
+    enabled: !!locationId && !!competencia,
+    queryFn: async () => {
+      const { data, error } = await db.from("panel_goals").select("*")
+        .eq("location_id", locationId).eq("competencia", competencia);
+      if (error) throw error;
+      return (data ?? []) as PanelGoal[];
+    },
+  });
+}
+
+export function useSaveGoal(locationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (g: { channel_id: string; competencia: string } & Partial<PanelGoal>) => {
+      const { error } = await db.from("panel_goals").upsert(
+        { ...g, location_id: locationId, updated_at: new Date().toISOString() },
+        { onConflict: "channel_id,competencia" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["panel-goals"] }),
+  });
+}
+
 /** Estrutura do painel: canais, pessoas, papéis, atividades e cotas. */
 export function usePanelStructure(locationId: string) {
   return useQuery({

@@ -1,17 +1,19 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { FREQ_LABEL, type Freq, type PanelChannel, type PanelMember } from "@/hooks/usePanelData";
-import { Avatar, Card, EmptyState, LAYER_COLOR, Progress, SectionTitle, Segmented, Label, nf } from "./shared";
+import { Avatar, Card, EmptyState, LAYER_COLOR, PeriodNav, Progress, SectionTitle, Segmented, Label, nf } from "./shared";
 
 /**
  * Quem cumpriu o quê. A pergunta que o head faz na reunião de segunda:
  * "o combinado do dia/semana/mês foi feito?" — vista por canal e por pessoa.
  */
 export default function Cumprimento({
-  freq, setFreq, channels, members, roles, tasks, quotas, isDoneFor,
+  freq, setFreq, refDate, setRefDate, channels, members, roles, tasks, quotas, isDoneFor,
 }: {
   freq: Freq;
   setFreq: (f: Freq) => void;
+  refDate: Date;
+  setRefDate: (d: Date) => void;
   channels: PanelChannel[];
   members: PanelMember[];
   roles: any[];
@@ -89,8 +91,7 @@ export default function Cumprimento({
         <SectionTitle title="Cumprimento" sub="O que foi combinado × o que foi feito — pior primeiro" />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Segmented<"canal"|"pessoa"> value={by} onChange={setBy} options={[{ id: "canal" as const, label: "Por canal" }, { id: "pessoa" as const, label: "Por pessoa" }]} />
-          <Segmented value={freq} onChange={setFreq}
-            options={[{ id: "d" as Freq, label: "Hoje" }, { id: "s" as Freq, label: "Semana" }, { id: "m" as Freq, label: "Mês" }]} />
+          <PeriodNav freq={freq} setFreq={setFreq} refDate={refDate} setRef={setRefDate} />
         </div>
       </div>
 

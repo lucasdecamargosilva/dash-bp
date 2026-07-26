@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Eye, Check, ChevronRight } from "lucide-react";
-import type { PanelMember, Role, Freq } from "@/hooks/usePanelData";
+import { Eye, Check, ChevronRight, ChevronLeft, RotateCcw } from "lucide-react";
+import { shiftPeriod, periodLabel, isCurrentPeriod, type PanelMember, type Role, type Freq } from "@/hooks/usePanelData";
 
 export const LAYER_COLOR: Record<string, string> = {
   quentes: "bg-orange-500",
@@ -127,6 +127,52 @@ export function Segmented<T extends string>({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Frequência + navegação no tempo, juntas — porque uma não faz sentido sem a
+ * outra: "semana" só quer dizer algo quando se sabe *qual* semana.
+ * Não deixa avançar além do período corrente: não há o que marcar no futuro.
+ */
+export function PeriodNav({
+  freq, setFreq, refDate, setRef,
+}: {
+  freq: Freq;
+  setFreq: (f: Freq) => void;
+  // "ref" seria interceptado pelo React como prop reservada e nunca chegaria aqui
+  refDate: Date;
+  setRef: (d: Date) => void;
+}) {
+  const atual = isCurrentPeriod(freq, refDate);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Segmented
+        value={freq}
+        onChange={(f) => { setFreq(f); setRef(new Date()); }}
+        options={[{ id: "d" as Freq, label: "Dia" }, { id: "s" as Freq, label: "Semana" }, { id: "m" as Freq, label: "Mês" }]}
+      />
+      <div className="inline-flex items-center rounded-lg border border-steel-100 bg-white dark:border-border dark:bg-card">
+        <button onClick={() => setRef(shiftPeriod(freq, refDate, -1))} title="Período anterior"
+          className="grid h-8 w-8 place-items-center rounded-l-lg text-steel-400 transition-colors hover:bg-steel-50 hover:text-navy-900 dark:hover:bg-secondary dark:hover:text-foreground">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className={cn("min-w-[104px] px-2 text-center font-body text-xs font-semibold",
+          atual ? "text-navy-900 dark:text-foreground" : "text-sky-600 dark:text-sky-400")}>
+          {periodLabel(freq, refDate)}
+        </span>
+        <button onClick={() => !atual && setRef(shiftPeriod(freq, refDate, 1))} disabled={atual} title="Período seguinte"
+          className="grid h-8 w-8 place-items-center text-steel-400 transition-colors hover:bg-steel-50 hover:text-navy-900 disabled:opacity-25 disabled:hover:bg-transparent dark:hover:bg-secondary dark:hover:text-foreground">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {!atual && (
+          <button onClick={() => setRef(new Date())} title="Voltar para o período atual"
+            className="grid h-8 w-8 place-items-center rounded-r-lg border-l border-steel-100 text-sky-600 transition-colors hover:bg-sky-50 dark:border-border dark:text-sky-400 dark:hover:bg-secondary">
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, LayoutGrid, BarChart3, Settings, CheckSquare } from "lucide-react";
 import {
-  usePanelStructure, usePanelChecks, useToggleCheck, useRealizado,
+  usePanelStructure, usePanelChecks, useToggleCheck, useRealizado, usePanelGoals,
   periodKey, type Freq, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, LAYER_COLOR, Label, SectionTitle, Segmented, brl, nf } from "@/components/painel/shared";
@@ -31,10 +31,15 @@ export default function Painel() {
   const [viewAs, setViewAs] = useState("");
   const [channelDetail, setChannelDetail] = useState<string | null>(null);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  // data de referência: qual dia/semana/mês estamos olhando
+  const [refDate, setRefDate] = useState(() => new Date());
 
   const structure = usePanelStructure(locationId);
-  // busca as três janelas de uma vez: o cumprimento compara dia, semana e mês
-  const keys = useMemo(() => [periodKey("d"), periodKey("s"), periodKey("m")], []);
+  // as três janelas do período de referência — permite olhar semanas e meses passados
+  const keys = useMemo(
+    () => [periodKey("d", refDate), periodKey("s", refDate), periodKey("m", refDate)],
+    [refDate]
+  );
   const checks = usePanelChecks(locationId, keys);
   const toggle = useToggleCheck(locationId);
 
@@ -71,7 +76,7 @@ export default function Painel() {
 
   const flip = (memberId: string, t: "task" | "quota", id: string) => {
     toggle.mutate(
-      { memberId, subjectType: t, subjectId: id, freq, periodKey: periodKey(freq), done: !isDoneFor(memberId, t, id) },
+      { memberId, subjectType: t, subjectId: id, freq, periodKey: periodKey(freq, refDate), done: !isDoneFor(memberId, t, id) },
       { onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }) }
     );
   };
@@ -171,7 +176,7 @@ export default function Painel() {
         ) : view === "minha" ? (
           <MinhaVisao
             target={target!} isHead={canManage} members={members} viewAs={viewAs} setViewAs={setViewAs}
-            freq={freq} setFreq={setFreq} groups={groupsFor(targetId)}
+            freq={freq} setFreq={setFreq} refDate={refDate} setRefDate={setRefDate} groups={groupsFor(targetId)}
             supervised={channels.filter((c) => c.active && roles.some((r) => r.member_id === targetId && r.channel_id === c.id && r.role === "super"))}
             roles={roles} tasks={tasks} quotas={quotas}
             isDone={(t, id) => isDoneFor(targetId, t, id)}
@@ -179,7 +184,7 @@ export default function Painel() {
             isDoneFor={isDoneFor}
           />
         ) : view === "cumprimento" ? (
-          <Cumprimento freq={freq} setFreq={setFreq} channels={channels} members={members}
+          <Cumprimento freq={freq} setFreq={setFreq} refDate={refDate} setRefDate={setRefDate} channels={channels} members={members}
             roles={roles} tasks={tasks} quotas={quotas} isDoneFor={isDoneFor} />
         ) : view === "canais" ? (
           <CanaisView locationId={locationId} channels={channels} roles={roles} members={members}
@@ -198,6 +203,12 @@ export default function Painel() {
 /* ------------------------------------------------------------ time & metas */
 function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
   const realizado = useRealizado(locationId, month);
+  const goals = usePanelGoals(locationId, month);
+  const metaDe = (id: string) => goals.data?.find((g) => g.channel_id === id);
+
+  /** Realizado sobre meta, quando há meta. Devolve null para não inventar %. */
+  const pctMeta = (feito: number, meta?: number | null) =>
+    meta && meta > 0 ? Math.round((feito / meta) * 100) : null;
   const months = useMemo(() => {
     const out: string[] = [];
     const d = new Date();
@@ -267,23 +278,37 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
                   </tr>
                 </thead>
                 <tbody>
-                  {chRows.map(({ c, r }: any) => (
-                    <tr key={c.id} className="border-b border-steel-50 last:border-0 dark:border-border/40">
-                      <td className="px-3 py-2 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
-                        <span className="mr-2 inline-block align-middle"><span className={cn("block h-2 w-2 rounded-sm", LAYER_COLOR[c.layer])} /></span>
-                        {c.name}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-navy-900 dark:text-foreground">{nf(r.opps)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-steel-500 dark:text-muted-foreground">{nf(r.reunioes)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-steel-500 dark:text-muted-foreground">{nf(r.propostas)}</td>
-                      <td className="px-3 py-2 text-right">
-                        <span className={cn("rounded-md px-2 py-0.5 font-mono text-sm font-bold tabular-nums",
-                          r.vendas > 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                            : "bg-steel-50 text-steel-400 dark:bg-secondary dark:text-muted-foreground")}>{r.vendas}</span>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-navy-900 dark:text-foreground">{r.faturamento ? brl(r.faturamento) : "—"}</td>
-                    </tr>
-                  ))}
+                  {chRows.map(({ c, r }: any) => {
+                    const g = metaDe(c.id);
+                    // celula = realizado em cima, meta embaixo; a cor diz se bateu
+                    const cel = (feito: number, meta?: number | null) => {
+                      const p = pctMeta(feito, meta);
+                      return (
+                        <td className="px-3 py-1.5 text-right">
+                          <span className={cn("block font-mono text-sm font-semibold tabular-nums",
+                            p === null ? "text-navy-900 dark:text-foreground"
+                              : p >= 100 ? "text-emerald-600 dark:text-emerald-400"
+                                : p >= 60 ? "text-amber-600 dark:text-amber-400" : "text-steel-500 dark:text-muted-foreground")}>
+                            {nf(feito)}
+                          </span>
+                          {meta ? <span className="block font-mono text-[10px] tabular-nums text-steel-300">de {nf(meta)}{p !== null && ` · ${p}%`}</span> : null}
+                        </td>
+                      );
+                    };
+                    return (
+                      <tr key={c.id} className="border-b border-steel-50 last:border-0 dark:border-border/40">
+                        <td className="px-3 py-1.5 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
+                          <span className="mr-2 inline-block align-middle"><span className={cn("block h-2 w-2 rounded-sm", LAYER_COLOR[c.layer])} /></span>
+                          {c.name}
+                        </td>
+                        {cel(r.opps, g?.contatos)}
+                        {cel(r.reunioes, g?.reunioes)}
+                        {cel(r.propostas, g?.propostas)}
+                        {cel(r.vendas, g?.vendas)}
+                        <td className="px-3 py-1.5 text-right font-mono text-sm tabular-nums text-navy-900 dark:text-foreground">{r.faturamento ? brl(r.faturamento) : "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

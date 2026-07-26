@@ -5,13 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   FREQ_LABEL, type Freq, type PanelChannel, type PanelMember, type Role,
 } from "@/hooks/usePanelData";
-import { Avatar, Card, CheckBox, EmptyState, LAYER_COLOR, Progress, RoleBadge, SectionTitle, Segmented, Label } from "./shared";
+import { Avatar, Card, CheckBox, EmptyState, LAYER_COLOR, PeriodNav, Progress, RoleBadge, SectionTitle, Segmented, Label } from "./shared";
 
 interface Item { kind: "task" | "quota"; id: string; title: string; target?: string | null }
 interface Group { channel: PanelChannel; items: Item[]; role: Role }
 
 export default function MinhaVisao({
-  target, isHead, members, viewAs, setViewAs, freq, setFreq,
+  target, isHead, members, viewAs, setViewAs, freq, setFreq, refDate, setRefDate,
   groups, supervised, roles, tasks, quotas,
   isDone, flip, isDoneFor,
 }: {
@@ -22,6 +22,8 @@ export default function MinhaVisao({
   setViewAs: (v: string) => void;
   freq: Freq;
   setFreq: (f: Freq) => void;
+  refDate: Date;
+  setRefDate: (d: Date) => void;
   groups: Group[];
   supervised: PanelChannel[];
   roles: any[];
@@ -78,11 +80,7 @@ export default function MinhaVisao({
               </SelectContent>
             </Select>
           )}
-          <Segmented
-            value={freq}
-            onChange={setFreq}
-            options={[{ id: "d" as Freq, label: "Hoje" }, { id: "s" as Freq, label: "Semana" }, { id: "m" as Freq, label: "Mês" }]}
-          />
+          <PeriodNav freq={freq} setFreq={setFreq} refDate={refDate} setRef={setRefDate} />
         </div>
       </Card>
 
