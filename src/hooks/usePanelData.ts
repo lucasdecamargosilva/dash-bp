@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-// integrations/supabase/types.ts e gerado e ainda nao conhece as tabelas panel_*.
-// Ate rodar a geracao de tipos de novo, o construtor de query fica sem tipo aqui —
-// as interfaces abaixo seguram o contrato na saida de cada hook.
+// As tabelas panel_* ja estao em integrations/supabase/types.ts. O alias existe
+// porque algumas chamadas montam o nome da tabela em runtime, e ai o construtor
+// de query nao consegue estreitar o tipo sozinho; as interfaces abaixo seguram
+// o contrato na saida de cada hook.
 const db = supabase as any;
 
 // Painel de Canais — estrutura operacional do time.

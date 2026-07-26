@@ -14,6 +14,267 @@ export type Database = {
   }
   public: {
     Tables: {
+      panel_channels: {
+        Row: {
+          id: string
+          location_id: string
+          name: string
+          layer: string
+          is_presales: boolean
+          is_draft: boolean
+          meta: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          name: string
+          layer?: string
+          is_presales?: boolean
+          is_draft?: boolean
+          meta?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          name?: string
+          layer?: string
+          is_presales?: boolean
+          is_draft?: boolean
+          meta?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      panel_checks: {
+        Row: {
+          id: string
+          location_id: string
+          member_id: string
+          subject_type: string
+          subject_id: string
+          freq: string
+          period_key: string
+          done_qty: number | null
+          done_at: string
+          done_by: string | null
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          member_id: string
+          subject_type: string
+          subject_id: string
+          freq: string
+          period_key: string
+          done_qty?: number | null
+          done_at?: string
+          done_by?: string | null
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          member_id?: string
+          subject_type?: string
+          subject_id?: string
+          freq?: string
+          period_key?: string
+          done_qty?: number | null
+          done_at?: string
+          done_by?: string | null
+        }
+        Relationships: []
+      }
+      panel_members: {
+        Row: {
+          id: string
+          location_id: string
+          name: string
+          profile_id: string | null
+          is_head: boolean
+          hue: number
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          name: string
+          profile_id?: string | null
+          is_head?: boolean
+          hue?: number
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          name?: string
+          profile_id?: string | null
+          is_head?: boolean
+          hue?: number
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      panel_pessoa_map: {
+        Row: {
+          id: string
+          location_id: string
+          pipeline_pessoa: string
+          member_id: string | null
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          pipeline_pessoa: string
+          member_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          pipeline_pessoa?: string
+          member_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      panel_quotas: {
+        Row: {
+          id: string
+          location_id: string
+          member_id: string
+          channel_id: string
+          account: string
+          per_day: number
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          member_id: string
+          channel_id: string
+          account: string
+          per_day?: number
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          member_id?: string
+          channel_id?: string
+          account?: string
+          per_day?: number
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      panel_roles: {
+        Row: {
+          id: string
+          location_id: string
+          member_id: string
+          channel_id: string
+          role: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          member_id: string
+          channel_id: string
+          role: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          member_id?: string
+          channel_id?: string
+          role?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      panel_source_map: {
+        Row: {
+          id: string
+          location_id: string
+          pipeline_source: string
+          channel_id: string | null
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          pipeline_source: string
+          channel_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          pipeline_source?: string
+          channel_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      panel_tasks: {
+        Row: {
+          id: string
+          location_id: string
+          channel_id: string
+          freq: string
+          title: string
+          target: string | null
+          sort_order: number
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          channel_id: string
+          freq: string
+          title: string
+          target?: string | null
+          sort_order?: number
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          channel_id?: string
+          freq?: string
+          title?: string
+          target?: string | null
+          sort_order?: number
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       acquisition_channel_metrics: {
         Row: {
           channel_id: string
