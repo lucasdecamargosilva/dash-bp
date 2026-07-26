@@ -5,6 +5,7 @@ import { type DateRange } from "react-day-picker";
 import { KPICard } from "./KPICard";
 import { FunnelChart } from "./FunnelChart";
 import { RevenueChart } from "./RevenueChart";
+import { MonthlyTrendChart } from "./MonthlyTrendChart";
 import { LeadsVsSalesChart } from "./LeadsVsSalesChart";
 import { ChannelsManagementPanel } from "./ChannelsManagementPanel";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -12,6 +13,7 @@ import { useDashboard } from "@/context/DashboardContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/context/TenantContext";
 import { useGHLData } from "@/hooks/useGHLData";
+import { useMonthlySeries } from "@/hooks/useMonthlySeries";
 
 const calculateChangePercentage = (current: number, previous?: number) => {
   if (!previous || previous === 0) return null;
@@ -38,43 +40,20 @@ export function DashboardOverview() {
   const { data: ghlData, isLoading: ghlLoading } = useGHLData(dateRange);
   const ghl = ghlData?.totals;
 
-  // Historical chart data from GHL summary (by month)
-  const [revenueData, setRevenueData] = useState<{ month: string; revenue: number; leads: number; sales: number }[]>([]);
-
-  useEffect(() => {
-    const loadHistorical = async () => {
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data: rows } = await (supabase as any)
-          .from("ghl_pipeline_summary")
-          .select("month,contato,msg_enviada,whatsapp_obtido,reuniao_agendada,reuniao_realizada,proposta_em_analise,venda_fechada,faturamento,total")
-          .eq("view_type", "total")
-          .neq("month", "all")
-          .order("month");
-
-        if (rows && rows.length > 0) {
-          const MONTH_LABELS: Record<string, string> = {
-            "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun",
-            "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez"
-          };
-          setRevenueData(rows.map((r: any) => {
-            const [year, m] = r.month.split("-");
-            // Leads qualificados = WhatsApp Obtido + Reuniao Agendada + Reuniao Realizada + Proposta + Venda Fechada
-            const leadsQualificados = (r.whatsapp_obtido || 0) + (r.reuniao_agendada || 0) + (r.reuniao_realizada || 0) + (r.proposta_em_analise || 0) + (r.venda_fechada || 0);
-            return {
-              month: `${MONTH_LABELS[m] || m}/${year.slice(2)}`,
-              revenue: parseFloat(r.faturamento) || 0,
-              leads: leadsQualificados,
-              sales: r.venda_fechada || 0,
-            };
-          }));
-        }
-      } catch (err) {
-        console.error("Error loading historical:", err);
-      }
-    };
-    loadHistorical();
-  }, []);
+  // Serie historica: vem da mesma fonte do funil (oportunidades), ja escopada
+  // por location_id. A leitura anterior era de ghl_pipeline_summary sem filtro
+  // de cliente, entao o grafico mostrava os numeros de outro tenant.
+  const serie = useMonthlySeries(tenant.ghlLocationId, 6);
+  const revenueData = useMemo(
+    () =>
+      (serie.data?.total ?? []).map((m) => ({
+        month: m.label,
+        revenue: m.faturamento,
+        leads: m.propostas,
+        sales: m.vendas,
+      })),
+    [serie.data]
+  );
 
   if (loading) {
     return (
@@ -209,10 +188,12 @@ export function DashboardOverview() {
 
         <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi p-5 animate-fade-up delay-6">
           <div className="mb-4">
-            <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Faturamento Mensal</h3>
-            <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Evolucao do faturamento por mes</p>
+            <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground">Evolucao Mensal</h3>
+            <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">
+              Faturamento, contatos, reunioes e vendas mes a mes — no total ou por canal
+            </p>
           </div>
-          <RevenueChart data={revenueData} title="Faturamento Mensal" />
+          <MonthlyTrendChart locationId={tenant.ghlLocationId} />
         </div>
       </div>
 
