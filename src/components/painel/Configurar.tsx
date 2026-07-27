@@ -1,20 +1,21 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2, Users, LayoutGrid, ListChecks, Gauge, Link2, AlertTriangle, Target } from "lucide-react";
+import { Plus, Trash2, Users, LayoutGrid, ListChecks, Gauge, Link2, AlertTriangle, Target, KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  usePanelMutation, usePanelMaps, useSaveMap, usePanelGoals, useSaveGoal,
+  usePanelMutation, usePanelMaps, useSaveMap, usePanelGoals, useSaveGoal, usePanelAcessos, useGerirAcesso,
   LAYERS, FREQ_LABEL, type Freq, type Layer, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, Label, RoleBadge, SectionTitle, Segmented } from "./shared";
 
-type Sec = "pessoas" | "canais" | "atividades" | "metas" | "cotas" | "vinculos";
+type Sec = "pessoas" | "acessos" | "canais" | "atividades" | "metas" | "cotas" | "vinculos";
 
 const SECOES: { id: Sec; label: string; icon: any; hint: string }[] = [
   { id: "pessoas", label: "Pessoas", icon: Users, hint: "Quem é do time, quem é head e o que cada um opera" },
+  { id: "acessos", label: "Acessos", icon: KeyRound, hint: "Criar login para o time e redefinir senha de quem esquecer" },
   { id: "canais", label: "Canais", icon: LayoutGrid, hint: "Criar, editar e remover canais de aquisição" },
   { id: "atividades", label: "Atividades", icon: ListChecks, hint: "A rotina de cada canal — diária, semanal e mensal" },
   { id: "metas", label: "Metas do mês", icon: Target, hint: "O número que cada canal precisa entregar no ciclo" },
@@ -72,6 +73,7 @@ export default function Configurar({ locationId, channels, members, roles, tasks
       {sec === "pessoas" && <Pessoas {...{ members, roles, channels, doCreate, doUpdate, doRemove }} />}
       {sec === "canais" && <Canais {...{ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }} />}
       {sec === "atividades" && <Atividades {...{ channels, tasks, doCreate, doRemove }} />}
+      {sec === "acessos" && <Acessos members={members} />}
       {sec === "metas" && <Metas locationId={locationId} channels={channels} />}
       {sec === "cotas" && <Cotas {...{ channels, members, quotas, doCreate, doRemove }} />}
       {sec === "vinculos" && <Vinculos locationId={locationId} channels={channels} members={members} />}
@@ -357,6 +359,137 @@ function Atividades({ channels, tasks, doCreate, doRemove }: any) {
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ acessos */
+/**
+ * Criar login e redefinir senha do time.
+ *
+ * A senha nunca fica salva em lugar nenhum — é digitada aqui e vai direto para
+ * o banco já com hash. Por isso a tela mostra a senha em texto enquanto você
+ * digita: é a única chance de anotá-la para repassar à pessoa.
+ */
+function Acessos({ members }: { members: PanelMember[] }) {
+  const acessos = usePanelAcessos(true);
+  const { criar, redefinir } = useGerirAcesso();
+  const { toast } = useToast();
+
+  const [sel, setSel] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+
+  const acessoDe = (id: string) => acessos.data?.find((a) => a.member_id === id);
+  const pessoa = members.find((m) => m.id === sel);
+  const jaTem = sel ? acessoDe(sel) : undefined;
+
+  const sugereEmail = (nome: string) =>
+    `${nome.trim().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").split(/\s+/)[0]}@bpgroupbr.com.br`;
+
+  const escolher = (id: string) => {
+    setSel(id === sel ? null : id);
+    setSenha("");
+    const m = members.find((x) => x.id === id);
+    setEmail(acessoDe(id)?.email ?? (m ? sugereEmail(m.name) : ""));
+  };
+
+  const salvar = () => {
+    if (!sel || senha.length < 8) return;
+    const fim = {
+      onSuccess: () => {
+        toast({
+          title: jaTem ? "Senha redefinida" : "Acesso criado",
+          description: `Passe a senha para ${pessoa?.name} — ela não fica salva aqui.`,
+        });
+        setSenha("");
+      },
+      onError: (e: any) => toast({ title: "Não deu certo", description: e.message, variant: "destructive" }),
+    };
+    if (jaTem) redefinir.mutate({ memberId: sel, senha }, fim);
+    else criar.mutate({ memberId: sel, email: email.trim(), senha }, fim);
+  };
+
+  const semAcesso = members.filter((m) => !acessoDe(m.id)).length;
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-steel-50 p-4 dark:border-border/60">
+          <Label>Time · {members.length}</Label>
+          {semAcesso > 0 && (
+            <span className="ml-auto rounded-full bg-amber-50 px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+              {semAcesso} sem login
+            </span>
+          )}
+        </div>
+        <div className="max-h-[420px] overflow-y-auto bp-scroll">
+          {members.map((m) => {
+            const a = acessoDe(m.id);
+            return (
+              <button key={m.id} onClick={() => escolher(m.id)}
+                className={cn("flex w-full items-center gap-2.5 border-b border-steel-50 px-4 py-2.5 text-left transition-colors last:border-0 dark:border-border/40",
+                  sel === m.id ? "bg-sky-50 dark:bg-sky-500/10" : "hover:bg-steel-50/60 dark:hover:bg-secondary/30")}>
+                <Avatar member={m} size={26} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-body text-sm font-semibold text-navy-900 dark:text-foreground">{m.name}</span>
+                  <span className={cn("block truncate font-body text-[11px]", a ? "text-steel-400" : "text-amber-600 dark:text-amber-400")}>
+                    {a ? a.email : "sem login"}
+                  </span>
+                </span>
+                {m.is_head && <RoleBadge role="super" />}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        {!pessoa ? (
+          <div className="p-8 text-center font-body text-sm text-steel-400 dark:text-muted-foreground">
+            Escolha alguém para criar o login ou trocar a senha.
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-steel-50 p-4 dark:border-border/60">
+              <Avatar member={pessoa} size={30} />
+              <div>
+                <p className="font-body text-base font-bold text-navy-900 dark:text-foreground">{pessoa.name}</p>
+                <p className="font-body text-[11px] text-steel-400">
+                  {jaTem ? `entra com ${jaTem.email}` : "ainda não tem acesso"}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3 p-4">
+              <div>
+                <Label>E-mail de acesso</Label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!!jaTem}
+                  placeholder="nome@bpgroupbr.com.br" className="mt-1 h-9 font-body text-sm" />
+                {jaTem && <p className="mt-1 font-body text-[11px] text-steel-400">O e-mail de uma conta existente não muda por aqui.</p>}
+              </div>
+              <div>
+                <Label>{jaTem ? "Nova senha" : "Senha inicial"}</Label>
+                <Input value={senha} onChange={(e) => setSenha(e.target.value)} type="text"
+                  placeholder="mínimo 8 caracteres" className="mt-1 h-9 font-mono text-sm" />
+                <p className="mt-1 font-body text-[11px] text-steel-400">
+                  Fica visível de propósito — anote agora, porque depois de salva ninguém mais consegue lê-la.
+                </p>
+              </div>
+              <Button onClick={salvar} disabled={senha.length < 8 || (!jaTem && !email.trim()) || criar.isPending || redefinir.isPending}
+                className="w-full font-body text-sm">
+                {criar.isPending || redefinir.isPending
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando…</>
+                  : jaTem ? "Redefinir senha" : "Criar acesso"}
+              </Button>
+              {jaTem?.ultimo_acesso && (
+                <p className="text-center font-body text-[11px] text-steel-400">
+                  Último acesso em {new Date(jaTem.ultimo_acesso).toLocaleDateString("pt-BR")}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   );
 }

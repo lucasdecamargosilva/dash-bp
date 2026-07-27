@@ -174,6 +174,65 @@ export function useSaveGoal(locationId: string) {
   });
 }
 
+/**
+ * Acessos — quem entra com qual e-mail.
+ *
+ * Criar usuário e trocar senha de terceiros exigem privilégio de admin. Fazer
+ * isso pelo navegador obrigaria a expor a chave de serviço, então a operação
+ * mora em funções no banco (SECURITY DEFINER) que conferem, por dentro, se
+ * quem chamou está logado e é head.
+ */
+export interface AcessoRow {
+  member_id: string;
+  email: string;
+  ultimo_acesso: string | null;
+}
+
+export function usePanelAcessos(enabled: boolean) {
+  return useQuery({
+    queryKey: ["panel-acessos"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await db.rpc("panel_acessos");
+      if (error) throw error;
+      return (data ?? []) as AcessoRow[];
+    },
+  });
+}
+
+export function useGerirAcesso() {
+  const qc = useQueryClient();
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ["panel-acessos"] });
+    qc.invalidateQueries({ queryKey: ["panel-structure"] });
+  };
+
+  const criar = useMutation({
+    mutationFn: async (a: { memberId: string; email: string; senha: string }) => {
+      const { data, error } = await db.rpc("panel_criar_acesso", {
+        p_member_id: a.memberId, p_email: a.email, p_senha: a.senha,
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.erro ?? "Não consegui criar o acesso.");
+      return data;
+    },
+    onSuccess: invalidar,
+  });
+
+  const redefinir = useMutation({
+    mutationFn: async (a: { memberId: string; senha: string }) => {
+      const { data, error } = await db.rpc("panel_redefinir_senha", {
+        p_member_id: a.memberId, p_senha: a.senha,
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.erro ?? "Não consegui redefinir a senha.");
+      return data;
+    },
+  });
+
+  return { criar, redefinir };
+}
+
 /** Estrutura do painel: canais, pessoas, papéis, atividades e cotas. */
 export function usePanelStructure(locationId: string) {
   return useQuery({

@@ -49,11 +49,16 @@ export default function Painel() {
   const tasks = structure.data?.tasks ?? [];
   const quotas = structure.data?.quotas ?? [];
 
+  // Quem está logado manda. Quando a pessoa está vinculada ao usuário, o
+  // seletor "Sou" some — senão qualquer um se identificaria como head.
+  const vinculado = useMemo(
+    () => members.find((m: any) => m.profile_id && m.profile_id === user?.id),
+    [members, user]
+  );
   useEffect(() => {
+    if (vinculado) { setMeId(vinculado.id); return; }
     if (meId || !members.length) return;
-    const byProfile = members.find((m: any) => m.profile_id && m.profile_id === user?.id);
-    if (byProfile) setMeId(byProfile.id);
-  }, [members, user, meId]);
+  }, [vinculado, members, meId]);
   useEffect(() => { if (meId) localStorage.setItem("panel-me", meId); }, [meId]);
 
   const me = members.find((m) => m.id === meId);
@@ -154,15 +159,26 @@ export default function Painel() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <Label>Sou</Label>
-            <Select value={meId} onValueChange={(v) => { setMeId(v); setViewAs(""); }}>
-              <SelectTrigger className="h-8 w-[168px] font-body text-xs"><SelectValue placeholder="Escolha seu nome" /></SelectTrigger>
-              <SelectContent>
-                {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id} className="font-body text-xs">{m.name}{m.is_head ? " · head" : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {vinculado ? (
+              <span className="flex items-center gap-2 rounded-full border border-steel-100 bg-steel-50 py-1 pl-1 pr-3 dark:border-border dark:bg-secondary/40">
+                <Avatar member={vinculado} size={22} />
+                <span className="font-body text-xs font-semibold text-navy-900 dark:text-foreground">
+                  {vinculado.name}{vinculado.is_head ? " · head" : ""}
+                </span>
+              </span>
+            ) : (
+              <>
+                <Label>Sou</Label>
+                <Select value={meId} onValueChange={(v) => { setMeId(v); setViewAs(""); }}>
+                  <SelectTrigger className="h-8 w-[168px] font-body text-xs"><SelectValue placeholder="Escolha seu nome" /></SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="font-body text-xs">{m.name}{m.is_head ? " · head" : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
         </div>
       </div>
