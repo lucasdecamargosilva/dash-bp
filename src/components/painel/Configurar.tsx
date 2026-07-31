@@ -72,7 +72,7 @@ export default function Configurar({ locationId, channels, members, roles, tasks
 
       {sec === "pessoas" && <Pessoas {...{ members, roles, channels, doCreate, doUpdate, doRemove }} />}
       {sec === "canais" && <Canais {...{ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }} />}
-      {sec === "atividades" && <Atividades {...{ channels, tasks, doCreate, doRemove }} />}
+      {sec === "atividades" && <Atividades {...{ channels, tasks, doCreate, doUpdate, doRemove }} />}
       {sec === "acessos" && <Acessos members={members} />}
       {sec === "metas" && <Metas locationId={locationId} channels={channels} />}
       {sec === "cotas" && <Cotas {...{ channels, members, quotas, doCreate, doRemove }} />}
@@ -292,7 +292,7 @@ function Canais({ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }
 }
 
 /* --------------------------------------------------------------- atividades */
-function Atividades({ channels, tasks, doCreate, doRemove }: any) {
+function Atividades({ channels, tasks, doCreate, doUpdate, doRemove }: any) {
   const [canal, setCanal] = useState<string>(channels[0]?.id ?? "");
   const [texto, setTexto] = useState("");
   const [freq, setFreq] = useState<Freq>("d");
@@ -331,7 +331,13 @@ function Atividades({ channels, tasks, doCreate, doRemove }: any) {
                   its.map((t: any) => (
                     <div key={t.id} className="flex items-center gap-2 border-b border-steel-50 px-4 py-2 last:border-0 dark:border-border/40">
                       <span className="h-1 w-1 rounded-full bg-steel-300" />
-                      <span className="font-body text-sm text-navy-900 dark:text-foreground">{t.title}</span>
+                      <Input defaultValue={t.title} title="Edite o texto e saia do campo para salvar"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== t.title) doUpdate("panel_tasks", t.id, { title: v });
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        className="h-7 flex-1 border-transparent bg-transparent px-1 font-body text-sm hover:border-steel-200 focus:border-sky-300" />
                       <button className="ml-auto text-steel-300 hover:text-red-600" onClick={() => doRemove("panel_tasks", t.id, "Atividade removida")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

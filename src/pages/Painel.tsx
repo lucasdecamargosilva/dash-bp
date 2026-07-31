@@ -205,7 +205,7 @@ export default function Painel() {
         ) : view === "canais" ? (
           <CanaisView locationId={locationId} channels={channels} roles={roles} members={members}
             tasks={tasks} quotas={quotas} detail={channelDetail} setDetail={setChannelDetail}
-            freq={freq} setFreq={setFreq} month={month} meId={meId} />
+            freq={freq} setFreq={setFreq} month={month} meId={meId} isHead={isHead} />
         ) : view === "time" ? (
           <TimeMetas locationId={locationId} month={month} setMonth={setMonth} channels={channels} members={members} />
         ) : (

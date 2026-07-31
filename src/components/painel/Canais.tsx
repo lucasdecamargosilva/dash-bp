@@ -11,7 +11,7 @@ import {
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, LAYER_TEXT, Label, RoleBadge, Row, SectionTitle, Segmented, brl, nf } from "./shared";
 
 export default function Canais({
-  locationId, channels, roles, members, tasks, quotas, detail, setDetail, freq, setFreq, month, meId,
+  locationId, channels, roles, members, tasks, quotas, detail, setDetail, freq, setFreq, month, meId, isHead,
 }: {
   locationId: string;
   channels: PanelChannel[];
@@ -25,14 +25,15 @@ export default function Canais({
   setFreq: (f: Freq) => void;
   month: string;
   meId: string;
+  isHead: boolean;
 }) {
   const realizado = useRealizado(locationId, month);
 
   if (detail) {
     const c = channels.find((x) => x.id === detail);
     if (!c) return null;
-    // quem acompanha o canal manda na rotina dele
-    const podeEditar = roles.some((r: any) => r.member_id === meId && r.channel_id === c.id && r.role === "super");
+    // quem acompanha o canal manda na rotina dele; head manda em todos
+    const podeEditar = isHead || roles.some((r: any) => r.member_id === meId && r.channel_id === c.id && r.role === "super");
     return (
       <Detalhe
         c={c} roles={roles} members={members} tasks={tasks} quotas={quotas}
@@ -146,7 +147,7 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
   const rs = roles.filter((r: any) => r.channel_id === c.id);
   const qs = quotas.filter((q: any) => q.channel_id === c.id);
   const cota = qs.reduce((a: number, q: any) => a + q.per_day, 0);
-  const { create, remove } = usePanelMutation(locationId);
+  const { create, update, remove } = usePanelMutation(locationId);
   const { toast } = useToast();
   const [editando, setEditando] = useState(false);
   const [novo, setNovo] = useState("");
@@ -159,6 +160,15 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
       { onSuccess: () => { toast({ title: "Atividade adicionada" }); setNovo(""); },
         onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }) }
     );
+  };
+  // renomear no lugar: salva ao sair do campo, so se mudou de verdade
+  const editTarefa = (id: string, title: string, anterior: string) => {
+    const t = title.trim();
+    if (!t || t === anterior) return;
+    update.mutate({ table: "panel_tasks", id, values: { title: t } }, {
+      onSuccess: () => toast({ title: "Atividade atualizada" }),
+      onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }),
+    });
   };
   const delTarefa = (id: string) =>
     remove.mutate({ table: "panel_tasks", id }, {
@@ -267,7 +277,14 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
                     {its.map((t: any) => (
                       <li key={t.id} className="group flex items-start gap-2 font-body text-sm text-navy-900 dark:text-foreground">
                         <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-steel-300" />
-                        <span className="flex-1">{t.title}</span>
+                        {editando ? (
+                          <Input defaultValue={t.title} title="Edite o texto e saia do campo para salvar"
+                            onBlur={(e) => editTarefa(t.id, e.target.value, t.title)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                            className="h-7 flex-1 font-body text-sm" />
+                        ) : (
+                          <span className="flex-1">{t.title}</span>
+                        )}
                         {editando && (
                           <button onClick={() => delTarefa(t.id)} title="Remover atividade"
                             className="mt-0.5 text-steel-300 transition-colors hover:text-red-600">
