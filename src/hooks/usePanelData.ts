@@ -408,6 +408,19 @@ export interface RealizadoRow {
  * Puxa só as colunas necessárias e soma no cliente — o volume por mês é
  * pequeno o bastante (poucos milhares) e evita depender de view no banco.
  */
+// O funil do GHL, na ordem. Uma oportunidade que chegou em "Venda Fechada"
+// passou por reuniao e proposta antes, entao conta nas duas — e o mesmo criterio
+// do dash Comercial (ghl-supabase.ts). Contar so a etapa atual subnotifica:
+// um negocio que avancou some das etapas anteriores.
+const FUNIL = [
+  "Contato", "Msg Enviada", "Conexao", "WhatsApp Obtido",
+  "Reuniao Agendada", "Reuniao Realizada", "Proposta em Analise", "Venda Fechada",
+];
+const chegouEm = (stage: string, etapa: string) => {
+  const atual = FUNIL.indexOf(stage);
+  return atual >= 0 && atual >= FUNIL.indexOf(etapa);
+};
+
 export function useRealizado(locationId: string, month: string) {
   return useQuery({
     queryKey: ["panel-realizado", locationId, month],
@@ -445,9 +458,9 @@ export function useRealizado(locationId: string, month: string) {
       const bump = (bucket: Map<string, RealizadoRow>, key: string | null, stage: string, value: number) => {
         if (!key) return;
         const row = bucket.get(key) ?? { key, opps: 0, reunioes: 0, propostas: 0, vendas: 0, faturamento: 0 };
-        row.opps++;
-        if (stage === "Reuniao Realizada") row.reunioes++;
-        if (stage === "Proposta em Analise") row.propostas++;
+        if (chegouEm(stage, "Contato")) row.opps++;
+        if (chegouEm(stage, "Reuniao Realizada")) row.reunioes++;
+        if (chegouEm(stage, "Proposta em Analise")) row.propostas++;
         if (stage === "Venda Fechada") {
           row.vendas++;
           row.faturamento += value || 0;

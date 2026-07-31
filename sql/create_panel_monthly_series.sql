@@ -18,8 +18,10 @@ LANGUAGE sql STABLE AS $fn$
   SELECT to_char(o.last_stage_change_at, 'YYYY-MM') AS mes,
          COALESCE(c.name, NULLIF(o.source, ''), 'Sem canal') AS canal,
          count(*),
-         count(*) FILTER (WHERE o.stage = 'Reuniao Realizada'),
-         count(*) FILTER (WHERE o.stage = 'Proposta em Analise'),
+         -- funil acumulado: quem chegou em Venda passou por reuniao e proposta
+         -- antes. Mesmo criterio do dash Comercial (ghl-supabase.ts).
+         count(*) FILTER (WHERE o.stage IN ('Reuniao Realizada', 'Proposta em Analise', 'Venda Fechada')),
+         count(*) FILTER (WHERE o.stage IN ('Proposta em Analise', 'Venda Fechada')),
          count(*) FILTER (WHERE o.stage = 'Venda Fechada'),
          COALESCE(sum(o.monetary_value) FILTER (WHERE o.stage = 'Venda Fechada'), 0)
   FROM ghl_pipeline_opportunities o
