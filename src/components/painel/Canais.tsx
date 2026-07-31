@@ -152,11 +152,12 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
   const [editando, setEditando] = useState(false);
   const [novo, setNovo] = useState("");
   const [novaFreq, setNovaFreq] = useState<Freq>("d");
+  const [novaAud, setNovaAud] = useState<"operacao" | "head">("operacao");
 
   const addTarefa = () => {
     if (!novo.trim()) return;
     create.mutate(
-      { table: "panel_tasks", values: { channel_id: c.id, freq: novaFreq, title: novo.trim(), sort_order: tasks.filter((t: any) => t.channel_id === c.id && t.freq === novaFreq).length + 1 } },
+      { table: "panel_tasks", values: { channel_id: c.id, freq: novaFreq, title: novo.trim(), audience: novaAud, sort_order: tasks.filter((t: any) => t.channel_id === c.id && t.freq === novaFreq && (t.audience ?? "operacao") === novaAud).length + 1 } },
       { onSuccess: () => { toast({ title: "Atividade adicionada" }); setNovo(""); },
         onError: (e: any) => toast({ title: "Não consegui salvar", description: e.message, variant: "destructive" }) }
     );
@@ -267,12 +268,16 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
               )}
             </div>
 
-            {(["d", "s", "m"] as Freq[]).map((f) => {
-              const its = tasks.filter((t: any) => t.channel_id === c.id && t.freq === f);
+            {(["operacao", "head"] as const).flatMap((a) =>
+              (["d", "s", "m"] as Freq[]).map((f) => {
+              const its = tasks.filter((t: any) => t.channel_id === c.id && t.freq === f && (t.audience ?? "operacao") === a);
               if (!its.length) return null;
               return (
-                <div key={f} className="mb-3">
-                  <p className="mb-1 font-body text-[10px] font-bold uppercase tracking-wide text-sky-600 dark:text-sky-400">{FREQ_NAME[f]} · {its.length}</p>
+                <div key={`${a}:${f}`} className="mb-3">
+                  <p className={cn("mb-1 font-body text-[10px] font-bold uppercase tracking-wide",
+                    a === "head" ? "text-violet-600 dark:text-violet-400" : "text-sky-600 dark:text-sky-400")}>
+                    {FREQ_NAME[f]} · {its.length} {a === "head" && "· do head"}
+                  </p>
                   <ul className="space-y-0.5">
                     {its.map((t: any) => (
                       <li key={t.id} className="group flex items-start gap-2 font-body text-sm text-navy-900 dark:text-foreground">
@@ -296,7 +301,7 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
                   </ul>
                 </div>
               );
-            })}
+            }))}
 
             {tasks.filter((t: any) => t.channel_id === c.id).length === 0 && !editando && (
               <p className="font-body text-xs italic text-steel-400">
@@ -313,6 +318,8 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
                     placeholder="Ex.: 20 ligações" className="h-8 min-w-[150px] flex-1 font-body text-xs" />
                   <Segmented<Freq> value={novaFreq} onChange={setNovaFreq} size="sm"
                     options={[{ id: "d", label: "Dia" }, { id: "s", label: "Semana" }, { id: "m", label: "Mês" }]} />
+                  <Segmented<"operacao" | "head"> value={novaAud} onChange={setNovaAud} size="sm"
+                    options={[{ id: "operacao", label: "Operação" }, { id: "head", label: "Head" }]} />
                   <Button size="sm" className="h-8 gap-1 font-body text-xs" onClick={addTarefa}>
                     <Plus className="h-3.5 w-3.5" /> Add
                   </Button>

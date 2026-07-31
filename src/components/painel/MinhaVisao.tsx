@@ -8,7 +8,10 @@ import {
 import { Avatar, Card, CheckBox, EmptyState, LAYER_COLOR, PeriodNav, Progress, RoleBadge, SectionTitle, Segmented, Label } from "./shared";
 
 interface Item { kind: "task" | "quota"; id: string; title: string; target?: string | null }
-interface Group { channel: PanelChannel; items: Item[]; role: Role }
+interface Group { channel: PanelChannel; items: Item[]; role: Role; audience: "operacao" | "head" }
+
+// um canal pode render dois grupos para a mesma pessoa (opera e acompanha)
+const gkey = (g: Group) => `${g.channel.id}:${g.audience}`;
 
 export default function MinhaVisao({
   target, isHead, members, viewAs, setViewAs, freq, setFreq, refDate, setRefDate,
@@ -38,8 +41,9 @@ export default function MinhaVisao({
   // basta acompanhar um canal para ter time — nao precisa ser head global
   const hasTeam = supervised.length > 0;
   const [mode, setMode] = useState<"operacao" | "time">(hasOperation ? "operacao" : "time");
-  const [open, setOpen] = useState<string | null>(groups[0]?.channel.id ?? null);
+  const [open, setOpen] = useState<string | null>(groups[0] ? gkey(groups[0]) : null);
 
+  const nOpera = groups.filter((g) => g.audience === "operacao").length;
   const total = groups.reduce((a, g) => a + g.items.length, 0);
   const done = groups.reduce((a, g) => a + g.items.filter((i) => isDone(i.kind, i.id)).length, 0);
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -61,7 +65,7 @@ export default function MinhaVisao({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {hasOperation && (
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-body text-[9px] font-bold uppercase tracking-wide text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-                <Briefcase className="h-2.5 w-2.5" /> opera {groups.length} canal{groups.length > 1 ? "is" : ""}
+                <Briefcase className="h-2.5 w-2.5" /> opera {nOpera} canal{nOpera > 1 ? "is" : ""}
               </span>
             )}
             {hasTeam && (
@@ -103,13 +107,20 @@ export default function MinhaVisao({
           <div className="space-y-2.5">
             {groups.map((g) => {
               const d = g.items.filter((i) => isDone(i.kind, i.id)).length;
-              const isOpen = open === g.channel.id;
+              const k = gkey(g);
+              const isOpen = open === k;
               return (
-                <Card key={g.channel.id} className={cn("overflow-hidden transition-colors", isOpen && "border-sky-300 dark:border-sky-500/40")}>
-                  <button onClick={() => setOpen(isOpen ? null : g.channel.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                <Card key={k} className={cn("overflow-hidden transition-colors", isOpen && "border-sky-300 dark:border-sky-500/40")}>
+                  <button onClick={() => setOpen(isOpen ? null : k)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
                     <span className={cn("h-2.5 w-2.5 flex-shrink-0 rounded-sm", LAYER_COLOR[g.channel.layer])} />
                     <span className="font-body text-sm font-bold text-navy-900 dark:text-foreground">{g.channel.name}</span>
-                    <RoleBadge role={g.role} />
+                    {g.audience === "head" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-body text-[9px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+                        <Eye className="h-2.5 w-2.5" /> como head
+                      </span>
+                    ) : (
+                      <RoleBadge role={g.role} />
+                    )}
                     <span className="ml-auto flex items-center gap-3">
                       <Progress done={d} total={g.items.length} />
                       <ChevronRight className={cn("h-4 w-4 text-steel-300 transition-transform", isOpen && "rotate-90 text-sky-500")} />

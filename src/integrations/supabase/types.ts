@@ -248,6 +248,7 @@ export type Database = {
           title: string
           target: string | null
           sort_order: number
+          audience: string
           active: boolean
           created_at: string
         }
@@ -259,6 +260,7 @@ export type Database = {
           title: string
           target?: string | null
           sort_order?: number
+          audience?: string
           active?: boolean
           created_at?: string
         }
@@ -270,6 +272,7 @@ export type Database = {
           title?: string
           target?: string | null
           sort_order?: number
+          audience?: string
           active?: boolean
           created_at?: string
         }

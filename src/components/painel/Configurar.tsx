@@ -292,10 +292,14 @@ function Canais({ channels, tasks, roles, quotas, doCreate, doUpdate, doRemove }
 }
 
 /* --------------------------------------------------------------- atividades */
+type Audience = "operacao" | "head";
+const AUD_NAME: Record<Audience, string> = { operacao: "Quem opera", head: "Quem acompanha (head)" };
+
 function Atividades({ channels, tasks, doCreate, doUpdate, doRemove }: any) {
   const [canal, setCanal] = useState<string>(channels[0]?.id ?? "");
   const [texto, setTexto] = useState("");
   const [freq, setFreq] = useState<Freq>("d");
+  const [aud, setAud] = useState<Audience>("operacao");
   const c = channels.find((x: PanelChannel) => x.id === canal);
 
   return (
@@ -318,12 +322,20 @@ function Atividades({ channels, tasks, doCreate, doUpdate, doRemove }: any) {
         <EmptyState>Escolha um canal para ver a rotina dele.</EmptyState>
       ) : (
         <>
-          {(["d", "s", "m"] as Freq[]).map((f) => {
-            const its = tasks.filter((t: any) => t.channel_id === c.id && t.freq === f);
+          {(["operacao", "head"] as Audience[]).flatMap((a) =>
+            (["d", "s", "m"] as Freq[]).map((f) => {
+            const its = tasks.filter((t: any) => t.channel_id === c.id && t.freq === f && (t.audience ?? "operacao") === a);
+            if (!its.length) return null;
             return (
-              <Card key={f} className="overflow-hidden">
+              <Card key={`${a}:${f}`} className="overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-steel-50 px-4 py-2.5 dark:border-border/60">
                   <Label>{FREQ_NAME[f]} · {its.length}</Label>
+                  <span className={cn("ml-auto rounded-full px-2 py-0.5 font-body text-[9px] font-bold uppercase tracking-wide",
+                    a === "head"
+                      ? "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                      : "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300")}>
+                    {AUD_NAME[a]}
+                  </span>
                 </div>
                 {its.length === 0 ? (
                   <p className="px-4 py-3 font-body text-xs italic text-steel-400">Nenhuma atividade {FREQ_LABEL[f]}.</p>
@@ -346,17 +358,22 @@ function Atividades({ channels, tasks, doCreate, doUpdate, doRemove }: any) {
                 )}
               </Card>
             );
-          })}
+          }))}
+          {tasks.filter((t: any) => t.channel_id === c.id).length === 0 && (
+            <EmptyState>Nenhuma atividade cadastrada em {c.name}.</EmptyState>
+          )}
           <Card className="p-4">
             <Label>Nova atividade em {c.name}</Label>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Ex.: 20 ligações" className="h-8 min-w-[200px] flex-1 font-body text-xs" />
               <Segmented<Freq> value={freq} onChange={setFreq} size="sm"
                 options={[{ id: "d" as Freq, label: "Dia" }, { id: "s" as Freq, label: "Semana" }, { id: "m" as Freq, label: "Mês" }]} />
+              <Segmented<Audience> value={aud} onChange={setAud} size="sm"
+                options={[{ id: "operacao" as Audience, label: "Operação" }, { id: "head" as Audience, label: "Head" }]} />
               <Button size="sm" className="h-8 gap-1 font-body text-xs"
                 onClick={() => {
                   if (!texto.trim()) return;
-                  doCreate("panel_tasks", { channel_id: c.id, freq, title: texto.trim(), sort_order: tasks.filter((t: any) => t.channel_id === c.id && t.freq === freq).length + 1 }, "Atividade adicionada");
+                  doCreate("panel_tasks", { channel_id: c.id, freq, title: texto.trim(), audience: aud, sort_order: tasks.filter((t: any) => t.channel_id === c.id && t.freq === freq && (t.audience ?? "operacao") === aud).length + 1 }, "Atividade adicionada");
                   setTexto("");
                 }}>
                 <Plus className="h-3.5 w-3.5" /> Adicionar

@@ -87,24 +87,38 @@ export default function Painel() {
   };
 
   /** Canais que a pessoa executa: dono/aux — ou onde tem cota. */
+  // Cada pessoa tem duas rotinas possiveis num canal: a de quem opera e a de
+  // quem acompanha. Quem acumula os dois papeis (o caso do Oda no Outbound)
+  // recebe os dois blocos, por isso um canal pode aparecer duas vezes.
   const groupsFor = (memberId: string) => {
-    const own = new Set(roles.filter((r) => r.member_id === memberId && r.role !== "super").map((r) => r.channel_id));
-    quotas.filter((q) => q.member_id === memberId).forEach((q) => own.add(q.channel_id));
-    return channels
-      .filter((c) => c.active && own.has(c.id))
-      .map((c) => {
+    const opera = new Set(roles.filter((r) => r.member_id === memberId && r.role !== "super").map((r) => r.channel_id));
+    quotas.filter((q) => q.member_id === memberId).forEach((q) => opera.add(q.channel_id));
+    const acompanha = new Set(roles.filter((r) => r.member_id === memberId && r.role === "super").map((r) => r.channel_id));
+
+    const tarefas = (channelId: string, audience: "operacao" | "head") =>
+      tasks
+        .filter((t) => t.channel_id === channelId && t.freq === freq && (t.audience ?? "operacao") === audience)
+        .map((t) => ({ kind: "task" as const, id: t.id, title: t.title, target: t.target }));
+
+    const out: { channel: PanelChannel; items: any[]; role: Role; audience: "operacao" | "head" }[] = [];
+    for (const c of channels.filter((x) => x.active)) {
+      if (opera.has(c.id)) {
         const items = [
           ...(freq === "d"
             ? quotas.filter((q) => q.member_id === memberId && q.channel_id === c.id)
                 .map((q) => ({ kind: "quota" as const, id: q.id, title: `Bater a cota — ${q.account}`, target: `${q.per_day}/dia` }))
             : []),
-          ...tasks.filter((t) => t.channel_id === c.id && t.freq === freq)
-            .map((t) => ({ kind: "task" as const, id: t.id, title: t.title, target: t.target })),
+          ...tarefas(c.id, "operacao"),
         ];
         const role = (roles.find((r) => r.member_id === memberId && r.channel_id === c.id && r.role !== "super")?.role ?? "dono") as Role;
-        return { channel: c, items, role };
-      })
-      .filter((g) => g.items.length > 0);
+        if (items.length) out.push({ channel: c, items, role, audience: "operacao" });
+      }
+      if (acompanha.has(c.id)) {
+        const items = tarefas(c.id, "head");
+        if (items.length) out.push({ channel: c, items, role: "super" as Role, audience: "head" });
+      }
+    }
+    return out;
   };
 
   if (structure.isLoading) {
