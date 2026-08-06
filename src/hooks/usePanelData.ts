@@ -54,8 +54,14 @@ export interface PanelQuota {
   member_id: string;
   channel_id: string;
   account: string;
-  per_day: number;
+  qty: number;
+  freq: Freq;
 }
+/** Cotas antigas nao tinham frequencia; toda cota sem freq e diaria. */
+export const quotaFreq = (q: any): Freq => (q?.freq ?? "d") as Freq;
+export const quotaQty = (q: any): number => q?.qty ?? q?.per_day ?? 0;
+/** "50/dia", "300/semana" — o sufixo que acompanha a quantidade. */
+export const FREQ_POR: Record<Freq, string> = { d: "dia", s: "semana", m: "mês" };
 export interface PanelCheck {
   id: string;
   member_id: string;

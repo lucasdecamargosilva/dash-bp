@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
-  LAYERS, FREQ_LABEL, useRealizado, usePanelMutation,
+  LAYERS, FREQ_LABEL, FREQ_POR, useRealizado, usePanelMutation, quotaFreq, quotaQty,
   type Freq, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, LAYER_TEXT, Label, RoleBadge, Row, SectionTitle, Segmented, brl, nf } from "./shared";
@@ -71,7 +71,7 @@ export default function Canais({
                 const head = roles.find((r: any) => r.channel_id === c.id && r.role === "super");
                 const headM = head ? members.find((m) => m.id === head.member_id) : null;
                 const n = tasks.filter((t: any) => t.channel_id === c.id && t.freq === freq).length;
-                const qd = quotas.filter((q: any) => q.channel_id === c.id).reduce((a: number, q: any) => a + q.per_day, 0);
+                const qd = quotas.filter((q: any) => q.channel_id === c.id && quotaFreq(q) === freq).reduce((a: number, q: any) => a + quotaQty(q), 0);
                 const r = realizado.data?.byChannel.get(c.id);
                 return (
                   <Row key={c.id} onClick={() => setDetail(c.id)}>
@@ -84,7 +84,7 @@ export default function Canais({
                       </span>
                       <span className="font-body text-[11px] text-steel-400 dark:text-muted-foreground">
                         {n} atividade{n === 1 ? "" : "s"} {FREQ_LABEL[freq]}
-                        {qd > 0 && ` · ${qd} msgs/dia`}
+                        {qd > 0 && ` · cota ${qd}/${FREQ_POR[freq]}`}
                         {c.meta ? ` · meta ${c.meta}` : ""}
                         {headM ? ` · head ${headM.name}` : ""}
                       </span>
@@ -146,7 +146,7 @@ export default function Canais({
 function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEditar, locationId }: any) {
   const rs = roles.filter((r: any) => r.channel_id === c.id);
   const qs = quotas.filter((q: any) => q.channel_id === c.id);
-  const cota = qs.reduce((a: number, q: any) => a + q.per_day, 0);
+  const cota = qs.reduce((a: number, q: any) => a + quotaQty(q), 0);
   const { create, update, remove } = usePanelMutation(locationId);
   const { toast } = useToast();
   const [editando, setEditando] = useState(false);
@@ -245,7 +245,7 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
                         {m && <Avatar member={m} size={18} />}
                         <span className="font-body text-xs font-semibold text-navy-900 dark:text-foreground">{m?.name}</span>
                         <span className="font-body text-xs text-steel-400">{q.account}</span>
-                        <span className="ml-auto font-mono text-xs font-bold tabular-nums text-navy-900 dark:text-foreground">{q.per_day}<span className="text-[9px] text-steel-400">/dia</span></span>
+                        <span className="ml-auto font-mono text-xs font-bold tabular-nums text-navy-900 dark:text-foreground">{quotaQty(q)}<span className="text-[9px] text-steel-400">/{FREQ_POR[quotaFreq(q)]}</span></span>
                       </div>
                     );
                   })}

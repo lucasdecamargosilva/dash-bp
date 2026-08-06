@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import {
   usePanelMutation, usePanelMaps, useSaveMap, usePanelGoals, useSaveGoal, usePanelAcessos, useGerirAcesso,
-  LAYERS, FREQ_LABEL, type Freq, type Layer, type Role, type PanelChannel, type PanelMember,
+  LAYERS, FREQ_LABEL, FREQ_POR, quotaFreq, quotaQty,
+  type Freq, type Layer, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, FREQ_NAME, LAYER_COLOR, Label, RoleBadge, SectionTitle, Segmented } from "./shared";
 
@@ -631,7 +632,8 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
   const [c, setC] = useState("");
   const [conta, setConta] = useState("");
   const [dia, setDia] = useState("20");
-  const total = quotas.reduce((a: number, q: any) => a + q.per_day, 0);
+  const [qFreq, setQFreq] = useState<Freq>("d");
+  const total = quotas.reduce((a: number, q: any) => a + quotaQty(q), 0);
 
   return (
     <div className="space-y-3">
@@ -642,7 +644,7 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
 
       {pv.map((ch: PanelChannel) => {
         const qs = quotas.filter((q: any) => q.channel_id === ch.id);
-        const sub = qs.reduce((a: number, q: any) => a + q.per_day, 0);
+        const sub = qs.reduce((a: number, q: any) => a + quotaQty(q), 0);
         return (
           <Card key={ch.id} className="overflow-hidden">
             <div className="flex items-center gap-2 border-b border-steel-50 px-4 py-2.5 dark:border-border/60">
@@ -662,7 +664,7 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
                     {mm && <Avatar member={mm} size={20} />}
                     <span className="font-body text-xs font-semibold text-navy-900 dark:text-foreground">{mm?.name}</span>
                     <span className="font-body text-xs text-steel-400">{q.account}</span>
-                    <span className="ml-auto font-mono text-sm font-bold tabular-nums text-navy-900 dark:text-foreground">{q.per_day}<span className="text-[10px] text-steel-400">/dia</span></span>
+                    <span className="ml-auto font-mono text-sm font-bold tabular-nums text-navy-900 dark:text-foreground">{quotaQty(q)}<span className="text-[10px] text-steel-400">/{FREQ_POR[quotaFreq(q)]}</span></span>
                     <button className="text-steel-300 hover:text-red-600" onClick={() => doRemove("panel_quotas", q.id, "Cota removida")}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -692,13 +694,19 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
           <div className="min-w-[150px] flex-1"><Label>Conta</Label>
             <Input value={conta} onChange={(e) => setConta(e.target.value)} placeholder="Ex.: Insta Caon" className="mt-1 h-8 font-body text-xs" />
           </div>
-          <div className="w-[80px]"><Label>Msgs/dia</Label>
+          <div className="w-[90px]"><Label>Quantidade</Label>
             <Input value={dia} onChange={(e) => setDia(e.target.value)} type="number" min="0" className="mt-1 h-8 font-body text-xs" />
+          </div>
+          <div><Label>Por</Label>
+            <div className="mt-1">
+              <Segmented<Freq> value={qFreq} onChange={setQFreq} size="sm"
+                options={[{ id: "d" as Freq, label: "Dia" }, { id: "s" as Freq, label: "Semana" }, { id: "m" as Freq, label: "Mês" }]} />
+            </div>
           </div>
           <Button size="sm" className="h-8 gap-1 font-body text-xs"
             onClick={() => {
               if (!m || !c || !conta.trim()) return;
-              doCreate("panel_quotas", { member_id: m, channel_id: c, account: conta.trim(), per_day: parseInt(dia, 10) || 0 }, "Cota adicionada");
+              doCreate("panel_quotas", { member_id: m, channel_id: c, account: conta.trim(), qty: parseInt(dia, 10) || 0, freq: qFreq }, "Cota adicionada");
               setConta("");
             }}>
             <Plus className="h-3.5 w-3.5" /> Adicionar

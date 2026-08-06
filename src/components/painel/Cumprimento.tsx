@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { FREQ_LABEL, type Freq, type PanelChannel, type PanelMember } from "@/hooks/usePanelData";
+import { FREQ_LABEL, quotaFreq, type Freq, type PanelChannel, type PanelMember } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, LAYER_COLOR, PeriodNav, Progress, SectionTitle, Segmented, Label, nf } from "./shared";
 
 /**
@@ -23,48 +23,55 @@ export default function Cumprimento({
 }) {
   const [by, setBy] = useState<"canal" | "pessoa">("canal");
 
-  /** Itens que cada pessoa deve nesse canal, nessa frequência. */
-  const itemsFor = (memberId: string, channelId: string) => [
-    ...(freq === "d"
-      ? quotas.filter((q: any) => q.member_id === memberId && q.channel_id === channelId).map((q: any) => ({ k: "quota" as const, id: q.id }))
-      : []),
-    ...tasks.filter((t: any) => t.channel_id === channelId && t.freq === freq).map((t: any) => ({ k: "task" as const, id: t.id })),
+  /** Itens que cada pessoa deve nesse canal, numa frequência. */
+  const itemsIn = (memberId: string, channelId: string, f: Freq) => [
+    ...quotas
+      .filter((q: any) => q.member_id === memberId && q.channel_id === channelId && quotaFreq(q) === f)
+      .map((q: any) => ({ k: "quota" as const, id: q.id })),
+    ...tasks.filter((t: any) => t.channel_id === channelId && t.freq === f).map((t: any) => ({ k: "task" as const, id: t.id })),
   ];
+  const itemsFor = (memberId: string, channelId: string) => itemsIn(memberId, channelId, freq);
 
   const ativo = (channelId: string) => channels.find((c) => c.id === channelId)?.active !== false;
 
   /** Uma linha por (pessoa, canal) — a unidade real de responsabilidade. */
-  const cells = useMemo(() => {
+  const cellsIn = (f: Freq) => {
     const out: { memberId: string; channelId: string; done: number; total: number }[] = [];
-    for (const r of roles) {
-      if (r.role === "super" || !ativo(r.channel_id)) continue;
-      const its = itemsFor(r.member_id, r.channel_id);
-      if (!its.length) continue;
+    const add = (memberId: string, channelId: string) => {
+      const its = itemsIn(memberId, channelId, f);
+      if (!its.length) return;
       out.push({
-        memberId: r.member_id,
-        channelId: r.channel_id,
-        done: its.filter((i) => isDoneFor(r.member_id, i.k, i.id)).length,
+        memberId, channelId,
+        done: its.filter((i) => isDoneFor(memberId, i.k, i.id)).length,
         total: its.length,
       });
+    };
+    for (const r of roles) {
+      if (r.role === "super" || !ativo(r.channel_id)) continue;
+      add(r.member_id, r.channel_id);
     }
     // cotas em canal onde a pessoa não tem papel formal também contam
     for (const q of quotas) {
-      if (freq !== "d") break;
-      if (!ativo(q.channel_id)) continue;
+      if (quotaFreq(q) !== f || !ativo(q.channel_id)) continue;
       if (out.some((c) => c.memberId === q.member_id && c.channelId === q.channel_id)) continue;
-      const its = itemsFor(q.member_id, q.channel_id);
-      if (!its.length) continue;
-      out.push({
-        memberId: q.member_id,
-        channelId: q.channel_id,
-        done: its.filter((i) => isDoneFor(q.member_id, i.k, i.id)).length,
-        total: its.length,
-      });
+      add(q.member_id, q.channel_id);
     }
     return out;
-  }, [roles, quotas, tasks, freq, isDoneFor]);
+  };
+
+  const cells = useMemo(() => cellsIn(freq), [roles, quotas, tasks, freq, isDoneFor]);
 
   const geral = cells.reduce((a, c) => ({ done: a.done + c.done, total: a.total + c.total }), { done: 0, total: 0 });
+
+  // As tres frequencias lado a lado. Os checks dos tres periodos ja vem
+  // carregados, entao isso nao custa requisicao nenhuma.
+  const resumo = useMemo(
+    () => (["d", "s", "m"] as Freq[]).map((f) => {
+      const t = cellsIn(f).reduce((a, c) => ({ done: a.done + c.done, total: a.total + c.total }), { done: 0, total: 0 });
+      return { freq: f, ...t, pct: t.total ? Math.round((t.done / t.total) * 100) : null };
+    }),
+    [roles, quotas, tasks, isDoneFor]
+  );
 
   const grouped = useMemo(() => {
     const key = by === "canal" ? "channelId" : "memberId";
@@ -95,13 +102,33 @@ export default function Cumprimento({
         </div>
       </div>
 
+      {/* as tres frequencias de uma vez — e clicar troca a lista de baixo */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="font-mono text-xl font-bold tabular-nums text-navy-900 dark:text-foreground">
-            {geral.total ? Math.round((geral.done / geral.total) * 100) : 0}%
-          </p>
-          <Label>Cumprimento {FREQ_LABEL[freq]}</Label>
-        </Card>
+        {resumo.map((r) => {
+          const ativa = r.freq === freq;
+          const cor = r.pct === null ? "text-steel-300"
+            : r.pct >= 80 ? "text-emerald-600 dark:text-emerald-400"
+            : r.pct >= 50 ? "text-amber-600 dark:text-amber-400"
+            : "text-red-600 dark:text-red-400";
+          return (
+            <button key={r.freq} onClick={() => setFreq(r.freq)}
+              className={cn(
+                "rounded-xl border bg-white p-4 text-left shadow-card transition-colors dark:bg-card",
+                ativa ? "border-sky-300 dark:border-sky-500/40" : "border-steel-100 hover:border-steel-200 dark:border-border"
+              )}>
+              <p className={cn("font-mono text-2xl font-bold tabular-nums", cor)}>
+                {r.pct === null ? "—" : `${r.pct}%`}
+              </p>
+              <Label>Cotas e atividades {FREQ_LABEL[r.freq]}s</Label>
+              <p className="mt-0.5 font-mono text-[11px] tabular-nums text-steel-400">
+                {r.total ? `${nf(r.done)}/${nf(r.total)} itens` : "nada combinado"}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <Card className="p-4">
           <p className="font-mono text-xl font-bold tabular-nums text-navy-900 dark:text-foreground">{nf(geral.done)}<span className="text-steel-300">/{nf(geral.total)}</span></p>
           <Label>Itens concluídos</Label>

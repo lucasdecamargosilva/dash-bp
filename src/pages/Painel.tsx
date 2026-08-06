@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, LayoutGrid, BarChart3, Settings, CheckSquare } from "lucide-react";
 import {
   usePanelStructure, usePanelChecks, useToggleCheck, useRealizado, usePanelGoals,
-  periodKey, type Freq, type Role, type PanelChannel, type PanelMember,
+  periodKey, quotaFreq, quotaQty, FREQ_POR,
+  type Freq, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
 import { Avatar, Card, EmptyState, LAYER_COLOR, Label, SectionTitle, Segmented, brl, nf } from "@/components/painel/shared";
 import MinhaVisao from "@/components/painel/MinhaVisao";
@@ -104,10 +105,9 @@ export default function Painel() {
     for (const c of channels.filter((x) => x.active)) {
       if (opera.has(c.id)) {
         const items = [
-          ...(freq === "d"
-            ? quotas.filter((q) => q.member_id === memberId && q.channel_id === c.id)
-                .map((q) => ({ kind: "quota" as const, id: q.id, title: `Bater a cota — ${q.account}`, target: `${q.per_day}/dia` }))
-            : []),
+          ...quotas
+            .filter((q) => q.member_id === memberId && q.channel_id === c.id && quotaFreq(q) === freq)
+            .map((q) => ({ kind: "quota" as const, id: q.id, title: `Bater a cota — ${q.account}`, target: `${quotaQty(q)}/${FREQ_POR[freq]}` })),
           ...tarefas(c.id, "operacao"),
         ];
         const role = (roles.find((r) => r.member_id === memberId && r.channel_id === c.id && r.role !== "super")?.role ?? "dono") as Role;

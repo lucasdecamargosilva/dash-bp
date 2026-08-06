@@ -159,7 +159,8 @@ export type Database = {
           member_id: string
           channel_id: string
           account: string
-          per_day: number
+          qty: number
+          freq: string
           active: boolean
           created_at: string
         }
@@ -169,7 +170,8 @@ export type Database = {
           member_id: string
           channel_id: string
           account: string
-          per_day?: number
+          qty?: number
+          freq?: string
           active?: boolean
           created_at?: string
         }
@@ -179,7 +181,8 @@ export type Database = {
           member_id?: string
           channel_id?: string
           account?: string
-          per_day?: number
+          qty?: number
+          freq?: string
           active?: boolean
           created_at?: string
         }
