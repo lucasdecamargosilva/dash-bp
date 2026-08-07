@@ -20,7 +20,7 @@ const SECOES: { id: Sec; label: string; icon: any; hint: string }[] = [
   { id: "canais", label: "Canais", icon: LayoutGrid, hint: "Criar, editar e remover canais de aquisição" },
   { id: "atividades", label: "Atividades", icon: ListChecks, hint: "A rotina de cada canal — diária, semanal e mensal" },
   { id: "metas", label: "Metas do mês", icon: Target, hint: "O número que cada canal precisa entregar no ciclo" },
-  { id: "cotas", label: "Cotas", icon: Gauge, hint: "Volume diário de prospecção por conta" },
+  { id: "cotas", label: "Cotas", icon: Gauge, hint: "Volume de prospecção por conta — por dia, semana ou mês" },
   { id: "vinculos", label: "Vínculos", icon: Link2, hint: "Ligar os nomes do CRM aos canais e pessoas do painel" },
 ];
 
@@ -633,24 +633,40 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
   const [conta, setConta] = useState("");
   const [dia, setDia] = useState("20");
   const [qFreq, setQFreq] = useState<Freq>("d");
-  const total = quotas.reduce((a: number, q: any) => a + quotaQty(q), 0);
+  // Cada frequencia soma na sua propria unidade. Misturar e extrapolar daria
+  // numero inventado: uma cota de 300/semana nao e 300/dia.
+  const somaPor = (qs: any[], f: Freq) =>
+    qs.filter((q: any) => quotaFreq(q) === f).reduce((a: number, q: any) => a + quotaQty(q), 0);
+  const resumo = (qs: any[]) =>
+    (["d", "s", "m"] as Freq[]).map((f) => ({ f, n: somaPor(qs, f) })).filter((x) => x.n > 0);
+  const totais = resumo(quotas);
 
   return (
     <div className="space-y-3">
-      <Card className="flex items-center gap-3 p-4">
-        <span className="font-mono text-2xl font-bold tabular-nums text-navy-900 dark:text-foreground">{total}</span>
-        <div><Label>Mensagens por dia</Label><p className="font-body text-xs text-steel-400">{total * 5}/semana · {total * 20}/mês</p></div>
+      <Card className="flex flex-wrap items-center gap-6 p-4">
+        {totais.length === 0 ? (
+          <div><Label>Nenhuma cota cadastrada</Label></div>
+        ) : (
+          totais.map(({ f, n }) => (
+            <div key={f}>
+              <span className="font-mono text-2xl font-bold tabular-nums text-navy-900 dark:text-foreground">{n}</span>
+              <Label>por {FREQ_POR[f]}</Label>
+            </div>
+          ))
+        )}
       </Card>
 
       {pv.map((ch: PanelChannel) => {
         const qs = quotas.filter((q: any) => q.channel_id === ch.id);
-        const sub = qs.reduce((a: number, q: any) => a + quotaQty(q), 0);
+        const sub = resumo(qs);
         return (
           <Card key={ch.id} className="overflow-hidden">
             <div className="flex items-center gap-2 border-b border-steel-50 px-4 py-2.5 dark:border-border/60">
               <span className={cn("h-2.5 w-2.5 rounded-sm", LAYER_COLOR[ch.layer])} />
               <span className="font-body text-sm font-bold text-navy-900 dark:text-foreground">{ch.name}</span>
-              <span className={cn("ml-auto font-mono text-sm font-bold tabular-nums", sub ? "text-navy-900 dark:text-foreground" : "text-steel-300")}>{sub}<span className="text-[10px] text-steel-400">/dia</span></span>
+              <span className={cn("ml-auto font-mono text-sm font-bold tabular-nums", sub.length ? "text-navy-900 dark:text-foreground" : "text-steel-300")}>
+                {sub.length === 0 ? "—" : sub.map(({ f, n }) => `${n}/${FREQ_POR[f]}`).join(" · ")}
+              </span>
             </div>
             {qs.length === 0 ? (
               <p className="flex items-center gap-1.5 px-4 py-2.5 font-body text-xs italic text-amber-600 dark:text-amber-400">
