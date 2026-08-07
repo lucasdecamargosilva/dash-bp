@@ -117,19 +117,23 @@ function SummaryCard({ label, value, meta, icon: Icon, color, isCurrency }: {
 }
 
 // ---- Pacing Chart ----
-function PacingChart({ diarioData, meta, daysInMonth }: { diarioData: DiarioEntry[]; meta: number; daysInMonth: number }) {
+function PacingChart({ diarioData, meta, daysInMonth, mes }: { diarioData: DiarioEntry[]; meta: number; daysInMonth: number; mes: string }) {
   const chartData = useMemo(() => {
     const data = [];
     let acumulado = 0;
     const dailyMeta = meta / daysInMonth;
 
+    const now = new Date();
+    const [mesYear, mesMonth] = mes.split('-').map(Number);
+    const isCurrentMonth = mesYear === now.getFullYear() && mesMonth === (now.getMonth() + 1);
+
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `2026-04-${String(day).padStart(2, '0')}`;
+      const dateStr = `${mes}-${String(day).padStart(2, '0')}`;
       const dayEntries = diarioData.filter(d => d.data === dateStr);
       const dayTotal = dayEntries.reduce((sum, d) => sum + d.valor_vendas, 0);
       acumulado += dayTotal;
 
-      const isPast = day <= new Date().getDate();
+      const isPast = !isCurrentMonth || day <= now.getDate();
       data.push({
         dia: day,
         metaLinear: Math.round(dailyMeta * day),
@@ -327,8 +331,8 @@ const Comercial = () => {
     });
   }, [refreshKey, dateRange]);
 
-  // GHL users map (id -> name) for closers
-  const GHL_USERS: Record<string, string> = {
+  // GHL users map (id -> name) for closers — fetched dynamically
+  const [ghlUsers, setGhlUsers] = useState<Record<string, string>>({
     "vzPEBQaqgZw6Z2AhUqGQ": "Aline Autoral",
     "HLq1ZteZT3ov44XFhCcQ": "Andre Lima",
     "hSEGFIKfSCNXxpxhUqWT": "Carol Santana",
@@ -339,7 +343,26 @@ const Comercial = () => {
     "9oq3gqfnwfVqxhX42eje": "Thiago Canina",
     "F7v0GiBvJvPVNotI7Sl9": "Thiago Sacramento",
     "P8SRDXzyajdPYrPfle4T": "Vitoria Cloud",
-  };
+    "iIc8RNUmrwaKbKs9czov": "Alexandre Pinheiro",
+    "XsISZNBn8FhSGNQi7YpM": "Gabriela Guimarães",
+    "MfFG7dlRMFZLHdUGDe8c": "Matteus Eugenio",
+    "ZmIHkb6qdTtEOVL6Skev": "Vinicius Siqueira",
+  });
+
+  useEffect(() => {
+    if (!tenant.ghlToken || !tenant.ghlLocationId) return;
+    fetch(`https://services.leadconnectorhq.com/users/?locationId=${tenant.ghlLocationId}`, {
+      headers: { "Authorization": `Bearer ${tenant.ghlToken}`, "Version": "2021-07-28" }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.users) return;
+        const map: Record<string, string> = {};
+        for (const u of data.users) { if (u.id && u.name) map[u.id] = u.name; }
+        setGhlUsers(prev => ({ ...prev, ...map }));
+      })
+      .catch(() => {});
+  }, [tenant.ghlToken, tenant.ghlLocationId]);
 
   // Current month from dateRange (for simulador de metas)
   const currentMes = useMemo(() => {
@@ -727,7 +750,7 @@ const Comercial = () => {
                               {ghlData.closers
                                 .sort((a, b) => b.faturamento - a.faturamento || b.vendas - a.vendas || b.reunioesRealizadas - a.reunioesRealizadas)
                                 .map((c, i) => {
-                                  const name = GHL_USERS[c.userId] || c.userId.slice(0, 10);
+                                  const name = ghlUsers[c.userId] || `ID: ${c.userId.slice(0, 8)}...`;
                                   const convRV = c.reunioesRealizadas > 0 ? (c.vendas / c.reunioesRealizadas) * 100 : 0;
                                   return (
                                     <tr key={c.userId} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors">
@@ -922,7 +945,7 @@ const Comercial = () => {
                 {/* Pacing Chart */}
                 <div className="bg-white dark:bg-card rounded-xl border border-steel-100 dark:border-border shadow-kpi p-5 animate-fade-up delay-3">
                   <h3 className="font-display text-lg font-bold text-navy-900 dark:text-foreground mb-4">Pacing de Faturamento</h3>
-                  <PacingChart diarioData={diarioData} meta={meta.meta_faturamento} daysInMonth={daysInMonth} />
+                  <PacingChart diarioData={diarioData} meta={meta.meta_faturamento} daysInMonth={daysInMonth} mes={mes} />
                 </div>
 
               </>
