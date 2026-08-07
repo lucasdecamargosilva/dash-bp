@@ -649,10 +649,17 @@ const Pipeline = () => {
               <p className="text-xs font-body text-steel-400 dark:text-muted-foreground mt-0.5">Taxa de conversao e faturamento por canal de aquisicao</p>
             </div>
             {(() => {
+              // Antes havia um .filter(total >= 5) aqui: canal pequeno sumia da
+              // tabela inteira, sem aviso — Referidos com 4 oportunidades
+              // simplesmente nao existia na tela. Agora todo canal aparece; o
+              // que a amostra pequena derruba e a confianca na TAXA, nao a
+              // existencia do canal. Por isso 'poucaAmostra' marca a linha em
+              // vez de esconde-la.
+              const MIN_AMOSTRA = 5;
               const canaisBI = data.byCanal
-                .filter(c => c.total >= 5)
                 .map(c => ({
                   canal: c.canal, total: c.total, vendas: c.vendaFechada, faturamento: c.faturamento,
+                  poucaAmostra: c.total < MIN_AMOSTRA,
                   conversao: c.total > 0 ? (c.vendaFechada / c.total) * 100 : 0,
                   ticketMedio: c.vendaFechada > 0 ? c.faturamento / c.vendaFechada : 0,
                   leadsQualificados: c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
@@ -660,11 +667,17 @@ const Pipeline = () => {
                   reunioes: c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
                 }))
                 .sort((a, b) => b.conversao - a.conversao);
+              // O grafico compara TAXA, entao canal de 4 registros distorceria a
+              // escala (1 venda em 2 = 50%). Ele fica de fora do grafico, mas
+              // aparece na tabela e e nomeado logo abaixo — corte anunciado, nao
+              // silencioso.
+              const noGrafico = canaisBI.filter(c => !c.poucaAmostra).slice(0, 10);
+              const foraDoGrafico = canaisBI.filter(c => c.poucaAmostra);
               return (
                 <div className="p-5 space-y-5">
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={canaisBI.slice(0, 10)} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                      <BarChart data={noGrafico} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(148,163,184,0.15)" />
                         <XAxis type="number" fontSize={11} fontFamily="Plus Jakarta Sans" tickFormatter={v => `${v.toFixed(1)}%`} />
                         <YAxis type="category" dataKey="canal" fontSize={11} fontFamily="Plus Jakarta Sans" width={120} tickLine={false} axisLine={false} />
@@ -685,13 +698,19 @@ const Pipeline = () => {
                           return null;
                         }} />
                         <Bar dataKey="conversao" name="Conversao %" radius={[0, 4, 4, 0]} maxBarSize={20}>
-                          {canaisBI.slice(0, 10).map((c, i) => (
+                          {noGrafico.map((c, i) => (
                             <Cell key={i} fill={c.conversao >= 1 ? "#10b981" : c.conversao >= 0.1 ? "#f59e0b" : "#94a3b8"} />
                           ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                  {foraDoGrafico.length > 0 && (
+                    <p className="font-body text-xs text-steel-400 dark:text-muted-foreground">
+                      Fora do gráfico por amostra pequena (menos de {MIN_AMOSTRA} no período):{" "}
+                      {foraDoGrafico.map(c => `${c.canal} (${c.total})`).join(", ")} — aparecem na tabela abaixo.
+                    </p>
+                  )}
                   <div className="overflow-x-auto bp-scroll">
                     <table className="w-full">
                       <thead>
@@ -726,10 +745,18 @@ const Pipeline = () => {
                       <tbody>
                         {canaisBI.map((c, i) => (
                           <tr key={i} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors">
-                            <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">{c.canal}</td>
+                            <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
+                              {c.canal}
+                              {c.poucaAmostra && (
+                                <span title={`Só ${c.total} no período — a taxa em cima disso não diz muito`}
+                                  className="ml-2 rounded-full bg-steel-100 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-steel-500 dark:bg-secondary dark:text-muted-foreground">
+                                  amostra baixa
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.total.toLocaleString()}</td>
                             <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.leadsQualificados}</td>
-                            <td className="px-4 py-3 text-right"><span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded", c.taxaQualificacao >= 5 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : c.taxaQualificacao >= 1 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground")}>{c.taxaQualificacao.toFixed(1)}%</span></td>
+                            <td className="px-4 py-3 text-right"><span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded", c.poucaAmostra ? "bg-steel-100 dark:bg-secondary text-steel-400 dark:text-muted-foreground" : c.taxaQualificacao >= 5 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : c.taxaQualificacao >= 1 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground")}>{c.taxaQualificacao.toFixed(1)}%</span></td>
                             <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.reunioes}</td>
                             <td className="px-4 py-3 text-right font-body text-sm font-bold text-navy-900 dark:text-foreground tabular-nums">{c.vendas}</td>
                             <td className="px-4 py-3 text-right"><span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded", c.conversao >= 1 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : c.conversao >= 0.1 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground")}>{c.conversao.toFixed(2)}%</span></td>
