@@ -627,7 +627,10 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
 
 /* -------------------------------------------------------------------- cotas */
 function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
-  const pv = channels.filter((c: PanelChannel) => c.is_presales);
+  // Cota nao e exclusividade de pre-venda: Network, Parceiros e Referidos
+  // tambem tem volume combinado. Antes so canal com is_presales aparecia aqui,
+  // e nao havia como cadastrar cota para o resto.
+  const ativos = channels.filter((c: PanelChannel) => c.active);
   const [m, setM] = useState("");
   const [c, setC] = useState("");
   const [conta, setConta] = useState("");
@@ -656,7 +659,7 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
         )}
       </Card>
 
-      {pv.map((ch: PanelChannel) => {
+      {ativos.map((ch: PanelChannel) => {
         const qs = quotas.filter((q: any) => q.channel_id === ch.id);
         const sub = resumo(qs);
         return (
@@ -669,9 +672,17 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
               </span>
             </div>
             {qs.length === 0 ? (
-              <p className="flex items-center gap-1.5 px-4 py-2.5 font-body text-xs italic text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" /> Sem cota — este canal não aparece no motor.
-              </p>
+              // O alerta so vale para pre-venda: la a ausencia de cota tira o
+              // canal do motor. Nos outros, nao ter cota costuma ser o normal.
+              ch.is_presales ? (
+                <p className="flex items-center gap-1.5 px-4 py-2.5 font-body text-xs italic text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Sem cota — este canal não aparece no motor.
+                </p>
+              ) : (
+                <p className="px-4 py-2.5 font-body text-xs italic text-steel-400 dark:text-muted-foreground">
+                  Sem cota definida.
+                </p>
+              )
             ) : (
               qs.map((q: any) => {
                 const mm = members.find((x: PanelMember) => x.id === q.member_id);
@@ -704,7 +715,7 @@ function Cotas({ channels, members, quotas, doCreate, doRemove }: any) {
           <div className="min-w-[140px]"><Label>Canal</Label>
             <Select value={c} onValueChange={setC}>
               <SelectTrigger className="mt-1 h-8 font-body text-xs"><SelectValue placeholder="Onde" /></SelectTrigger>
-              <SelectContent>{pv.map((x: PanelChannel) => <SelectItem key={x.id} value={x.id} className="font-body text-xs">{x.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{ativos.map((x: PanelChannel) => <SelectItem key={x.id} value={x.id} className="font-body text-xs">{x.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="min-w-[150px] flex-1"><Label>Conta</Label>
