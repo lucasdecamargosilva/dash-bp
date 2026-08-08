@@ -250,11 +250,19 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
     return `${["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][+mm - 1]}/${y.slice(2)}`;
   };
 
+  // Sem realizado no mes, a linha ainda precisa existir se o canal tem meta —
+  // senao a meta some da tela junto com o canal (foi o caso do Claude: meta de
+  // 2.600 contatos invisivel porque o vinculo do source estava solto). O zero
+  // e informacao: "combinamos X e nao andou nada".
+  const VAZIO = { opps: 0, reunioes: 0, propostas: 0, vendas: 0, faturamento: 0 };
   const chRows = useMemo(() => {
     if (!realizado.data) return [];
-    return channels.map((c: PanelChannel) => ({ c, r: realizado.data!.byChannel.get(c.id) }))
-      .filter((x: any) => x.r).sort((a: any, b: any) => b.r.opps - a.r.opps);
-  }, [realizado.data, channels]);
+    return channels
+      .map((c: PanelChannel) => ({ c, r: realizado.data!.byChannel.get(c.id) }))
+      .filter((x: any) => x.r || (x.c.active && metaDe(x.c.id)))
+      .map((x: any) => ({ ...x, r: x.r ?? VAZIO }))
+      .sort((a: any, b: any) => b.r.opps - a.r.opps);
+  }, [realizado.data, channels, goals.data]);
   const mbRows = useMemo(() => {
     if (!realizado.data) return [];
     return members.map((m: PanelMember) => ({ m, r: realizado.data!.byMember.get(m.id) }))
