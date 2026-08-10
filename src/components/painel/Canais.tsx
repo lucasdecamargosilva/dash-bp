@@ -92,7 +92,7 @@ export default function Canais({
                     {r && (
                       <span className="hidden text-right sm:block">
                         <span className="block font-mono text-sm font-bold tabular-nums text-navy-900 dark:text-foreground">{nf(r.opps)}</span>
-                        <span className="block font-body text-[9px] uppercase tracking-wide text-steel-400">opps no mês</span>
+                        <span className="block font-body text-[9px] uppercase tracking-wide text-steel-400">contatos no mês</span>
                       </span>
                     )}
                     <span className="flex -space-x-1.5">
@@ -130,7 +130,7 @@ export default function Canais({
                   {r && (
                     <span className="hidden text-right sm:block">
                       <span className="block font-mono text-sm font-bold tabular-nums text-steel-400">{nf(r.opps)}</span>
-                      <span className="block font-body text-[9px] uppercase tracking-wide text-steel-300">opps no mês</span>
+                      <span className="block font-body text-[9px] uppercase tracking-wide text-steel-300">contatos no mês</span>
                     </span>
                   )}
                 </Row>
@@ -202,7 +202,7 @@ function Detalhe({ c, roles, members, tasks, quotas, real, month, onBack, podeEd
         {/* realizado do mês, direto do pipeline */}
         <div className="grid grid-cols-2 divide-x divide-steel-50 border-b border-steel-50 sm:grid-cols-5 dark:divide-border/40 dark:border-border/60">
           {[
-            { l: "Oportunidades", v: real ? nf(real.opps) : "—" },
+            { l: "Contatos", v: real ? nf(real.opps) : "—" },
             { l: "Reuniões", v: real ? nf(real.reunioes) : "—" },
             { l: "Propostas", v: real ? nf(real.propostas) : "—" },
             { l: "Vendas", v: real ? nf(real.vendas) : "—", hot: !!real?.vendas },

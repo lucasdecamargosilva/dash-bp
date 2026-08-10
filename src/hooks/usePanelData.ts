@@ -427,14 +427,32 @@ const chegouEm = (stage: string, etapa: string) => {
   return atual >= 0 && atual >= FUNIL.indexOf(etapa);
 };
 
-export function useRealizado(locationId: string, month: string) {
+/**
+ * Janela [inicio, fim) do periodo em UTC, com o dia comecando a meia-noite de
+ * Brasilia (03:00Z) — mesmo criterio do recorte da aba Pipeline. Semana ISO,
+ * segunda a domingo.
+ */
+export function rangeFor(freq: Freq, ref: Date): { start: string; endExcl: string } {
+  const utc3 = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d, 3, 0, 0, 0)).toISOString();
+  const y = ref.getFullYear(), m = ref.getMonth(), d = ref.getDate();
+  if (freq === "d") return { start: utc3(y, m, d), endExcl: utc3(y, m, d + 1) };
+  if (freq === "s") {
+    const dow = (ref.getDay() + 6) % 7; // 0 = segunda
+    return { start: utc3(y, m, d - dow), endExcl: utc3(y, m, d - dow + 7) };
+  }
+  return { start: utc3(y, m, 1), endExcl: utc3(y, m + 1, 1) };
+}
+
+export function useRealizado(locationId: string, month: string, freq: Freq = "m", refDate?: Date) {
+  // month segue sendo a chave para quem pensa por competencia (Canais);
+  // freq+refDate estreitam a janela quando a tela quer dia ou semana.
+  const base = refDate ?? new Date(`${month}-15T12:00:00`);
+  const { start, endExcl } = rangeFor(freq, base);
   return useQuery({
-    queryKey: ["panel-realizado", locationId, month],
+    queryKey: ["panel-realizado", locationId, start, endExcl],
     enabled: !!locationId && !!month,
     queryFn: async () => {
-      const start = `${month}-01`;
-      const [y, m] = month.split("-").map(Number);
-      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const nextMonth = endExcl;
 
       const [opps, maps] = await Promise.all([
         db
@@ -464,7 +482,9 @@ export function useRealizado(locationId: string, month: string) {
       const bump = (bucket: Map<string, RealizadoRow>, key: string | null, stage: string, value: number) => {
         if (!key) return;
         const row = bucket.get(key) ?? { key, opps: 0, reunioes: 0, propostas: 0, vendas: 0, faturamento: 0 };
-        if (chegouEm(stage, "Contato")) row.opps++;
+        // A etapa "Contato" virou fila de espera (lista de quem ainda vai
+        // receber mensagem). Contato trabalhado comeca em Msg Enviada.
+        if (chegouEm(stage, "Msg Enviada")) row.opps++;
         if (chegouEm(stage, "Reuniao Realizada")) row.reunioes++;
         if (chegouEm(stage, "Proposta em Analise")) row.propostas++;
         if (stage === "Venda Fechada") {
@@ -487,7 +507,9 @@ export function useRealizado(locationId: string, month: string) {
       return {
         byChannel,
         byMember,
-        total: (opps.data ?? []).length,
+        // total acompanha o mesmo criterio das linhas: so contato trabalhado
+        total: (opps.data ?? []).filter((o: any) => chegouEm(o.stage, "Msg Enviada")).length,
+        naFila: (opps.data ?? []).filter((o: any) => o.stage === "Contato").length,
         semVinculoCanal,
         semVinculoPessoa,
       };

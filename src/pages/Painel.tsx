@@ -12,7 +12,7 @@ import {
   periodKey, quotaFreq, quotaQty, FREQ_POR,
   type Freq, type Role, type PanelChannel, type PanelMember,
 } from "@/hooks/usePanelData";
-import { Avatar, Card, EmptyState, LAYER_COLOR, Label, SectionTitle, Segmented, brl, nf } from "@/components/painel/shared";
+import { Avatar, Card, EmptyState, LAYER_COLOR, Label, PeriodNav, SectionTitle, Segmented, brl, nf } from "@/components/painel/shared";
 import MinhaVisao from "@/components/painel/MinhaVisao";
 import Cumprimento from "@/components/painel/Cumprimento";
 import CanaisView from "@/components/painel/Canais";
@@ -231,23 +231,31 @@ export default function Painel() {
 }
 
 /* ------------------------------------------------------------ time & metas */
-function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
-  const realizado = useRealizado(locationId, month);
-  const goals = usePanelGoals(locationId, month);
+function TimeMetas({ locationId, channels, members }: any) {
+  // A tela navega por dia/semana/mes; a meta continua sendo mensal.
+  const [freq, setFreq] = useState<Freq>("m");
+  const [refDate, setRefDate] = useState(new Date());
+  const compet = `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, "0")}`;
+  const realizado = useRealizado(locationId, compet, freq, refDate);
+  const goals = usePanelGoals(locationId, compet);
   const metaDe = (id: string) => goals.data?.find((g) => g.channel_id === id);
 
+  // Em dia/semana a meta mensal vira ritmo: a fatia proporcional do mes.
+  // Linear por dias corridos — nao chuto dias uteis.
+  const diasNoMes = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0).getDate();
+  const fator = freq === "m" ? 1 : freq === "s" ? 7 / diasNoMes : 1 / diasNoMes;
+  const ritmo = (meta?: number | null) => (meta && meta > 0 ? meta * fator : null);
+
   /** Realizado sobre meta, quando há meta. Devolve null para não inventar %. */
-  const pctMeta = (feito: number, meta?: number | null) =>
-    meta && meta > 0 ? Math.round((feito / meta) * 100) : null;
-  const months = useMemo(() => {
-    const out: string[] = [];
-    const d = new Date();
-    for (let i = 0; i < 8; i++) out.push(new Date(d.getFullYear(), d.getMonth() - i, 1).toISOString().slice(0, 7));
-    return out;
-  }, []);
-  const label = (m: string) => {
-    const [y, mm] = m.split("-");
-    return `${["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][+mm - 1]}/${y.slice(2)}`;
+  const pctMeta = (feito: number, meta?: number | null) => {
+    const alvo = ritmo(meta);
+    return alvo ? Math.round((feito / alvo) * 100) : null;
+  };
+  const rotuloMeta = (meta?: number | null, dinheiro = false) => {
+    const alvo = ritmo(meta);
+    if (!alvo) return null;
+    const v = dinheiro ? brl(Math.round(alvo)) : nf(Math.max(1, Math.round(alvo)));
+    return freq === "m" ? `de ${v}` : `ritmo ${v}`;
   };
 
   // Sem realizado no mes, a linha ainda precisa existir se o canal tem meta —
@@ -269,19 +277,30 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
       .filter((x: any) => x.r).sort((a: any, b: any) => b.r.opps - a.r.opps);
   }, [realizado.data, members]);
   const totals = useMemo(() => {
-    let vendas = 0, fat = 0, reun = 0;
-    for (const { r } of chRows) { vendas += r.vendas; fat += r.faturamento; reun += r.reunioes; }
-    return { vendas, fat, reun };
+    let vendas = 0, fat = 0, reun = 0, opps = 0;
+    for (const { r } of chRows) { vendas += r.vendas; fat += r.faturamento; reun += r.reunioes; opps += r.opps; }
+    return { vendas, fat, reun, opps };
   }, [chRows]);
+  // soma das metas dos canais ativos — o denominador dos cartoes de progresso
+  const somaMetas = useMemo(() => {
+    const a = { contatos: 0, reunioes: 0, vendas: 0, faturamento: 0 };
+    for (const c of channels as PanelChannel[]) {
+      if (!c.active) continue;
+      const g = goals.data?.find((x) => x.channel_id === c.id);
+      if (!g) continue;
+      a.contatos += g.contatos ?? 0; a.reunioes += g.reunioes ?? 0;
+      a.vendas += g.vendas ?? 0; a.faturamento += (g as any).faturamento ?? 0;
+    }
+    return a;
+  }, [channels, goals.data]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <SectionTitle title="Time & Metas" sub="Realizado direto do pipeline, cruzado pelos vínculos do painel" />
-        <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="ml-auto h-8 w-[120px] font-body text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>{months.map((m) => <SelectItem key={m} value={m} className="font-body text-xs">{label(m)}</SelectItem>)}</SelectContent>
-        </Select>
+        <div className="ml-auto">
+          <PeriodNav freq={freq} setFreq={setFreq} refDate={refDate} setRef={setRefDate} />
+        </div>
       </div>
 
       {realizado.isLoading ? (
@@ -290,18 +309,36 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
         <EmptyState>Não consegui carregar o realizado: {(realizado.error as any).message}</EmptyState>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { l: "Oportunidades", v: nf(realizado.data!.total) },
-              { l: "Reuniões", v: nf(totals.reun) },
-              { l: "Vendas", v: nf(totals.vendas) },
-              { l: "Faturamento", v: brl(totals.fat) },
-            ].map((k) => (
+              { l: "Contatos", v: nf(totals.opps), feito: totals.opps, meta: somaMetas.contatos, dinheiro: false },
+              { l: "Reuniões", v: nf(totals.reun), feito: totals.reun, meta: somaMetas.reunioes, dinheiro: false },
+              { l: "Vendas", v: nf(totals.vendas), feito: totals.vendas, meta: somaMetas.vendas, dinheiro: false },
+              { l: "Faturamento", v: brl(totals.fat), feito: totals.fat, meta: somaMetas.faturamento, dinheiro: true },
+            ].map((k) => {
+              const p = pctMeta(k.feito, k.meta);
+              const rot = rotuloMeta(k.meta, k.dinheiro);
+              const cor = p === null ? "bg-steel-300"
+                : p >= 100 ? "bg-emerald-500" : p >= 60 ? "bg-amber-500" : "bg-red-500";
+              return (
               <Card key={k.l} className="p-4">
-                <p className="font-mono text-xl font-bold tabular-nums text-navy-900 dark:text-foreground">{k.v}</p>
-                <Label>{k.l}</Label>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="font-mono text-xl font-bold tabular-nums text-navy-900 dark:text-foreground">{k.v}</p>
+                  {p !== null && (
+                    <span className={cn("font-mono text-sm font-bold tabular-nums",
+                      p >= 100 ? "text-emerald-600 dark:text-emerald-400" : p >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400")}>
+                      {p}%
+                    </span>
+                  )}
+                </div>
+                <Label>{k.l}{rot ? ` · ${rot}` : ""}</Label>
+                <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-steel-100 dark:bg-secondary">
+                  <span className={cn("block h-full rounded-full transition-all", cor)}
+                    style={{ width: `${Math.min(100, p ?? 0)}%` }} />
+                </span>
               </Card>
-            ))}
+              );
+            })}
           </div>
 
           <Card className="overflow-hidden">
@@ -310,7 +347,7 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-steel-100 bg-steel-50/50 dark:border-border dark:bg-secondary/30">
-                    {["Canal", "Oportunidades", "Reuniões", "Propostas", "Vendas", "Faturamento"].map((h, i) => (
+                    {["Canal", "Contatos", "Reuniões", "Propostas", "Vendas", "Faturamento"].map((h, i) => (
                       <th key={h} className={cn("px-3 py-2 font-body text-[10px] font-bold uppercase tracking-wider text-steel-400", i === 0 ? "text-left" : "text-right")}>{h}</th>
                     ))}
                   </tr>
@@ -329,7 +366,7 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
                                 : p >= 60 ? "text-amber-600 dark:text-amber-400" : "text-steel-500 dark:text-muted-foreground")}>
                             {nf(feito)}
                           </span>
-                          {meta ? <span className="block font-mono text-[10px] tabular-nums text-steel-300">de {nf(meta)}{p !== null && ` · ${p}%`}</span> : null}
+                          {meta ? <span className="block font-mono text-[10px] tabular-nums text-steel-300">{rotuloMeta(meta)}{p !== null && ` · ${p}%`}</span> : null}
                         </td>
                       );
                     };
@@ -343,7 +380,23 @@ function TimeMetas({ locationId, month, setMonth, channels, members }: any) {
                         {cel(r.reunioes, g?.reunioes)}
                         {cel(r.propostas, g?.propostas)}
                         {cel(r.vendas, g?.vendas)}
-                        <td className="px-3 py-1.5 text-right font-mono text-sm tabular-nums text-navy-900 dark:text-foreground">{r.faturamento ? brl(r.faturamento) : "—"}</td>
+                        <td className="px-3 py-1.5 text-right">
+                          {(() => {
+                            const metaFat = (g as any)?.faturamento;
+                            const p = pctMeta(r.faturamento, metaFat);
+                            return (
+                              <>
+                                <span className={cn("block font-mono text-sm font-semibold tabular-nums",
+                                  p === null ? "text-navy-900 dark:text-foreground"
+                                    : p >= 100 ? "text-emerald-600 dark:text-emerald-400"
+                                      : p >= 60 ? "text-amber-600 dark:text-amber-400" : "text-steel-500 dark:text-muted-foreground")}>
+                                  {r.faturamento ? brl(r.faturamento) : "—"}
+                                </span>
+                                {metaFat ? <span className="block font-mono text-[10px] tabular-nums text-steel-300">{rotuloMeta(metaFat, true)}{p !== null && ` · ${p}%`}</span> : null}
+                              </>
+                            );
+                          })()}
+                        </td>
                       </tr>
                     );
                   })}

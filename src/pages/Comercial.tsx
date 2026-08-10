@@ -385,7 +385,8 @@ const Comercial = () => {
     let sum = 0;
     for (let i = raw.length - 1; i >= 0; i--) { sum += raw[i]; acc[i] = sum; }
     return {
-      contato: acc[0], conexao: acc[2], whatsapp: acc[3], agendada: acc[4],
+      // "Contatos" comeca em Msg Enviada: a etapa Contato virou fila de espera
+      contato: acc[1], conexao: acc[2], whatsapp: acc[3], agendada: acc[4],
       realizada: acc[5], proposta: acc[6], venda: acc[7],
       faturamento: ghl.faturamento,
       noShow: Math.max(0, acc[4] - acc[5]),

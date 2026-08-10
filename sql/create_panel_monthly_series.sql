@@ -17,7 +17,9 @@ RETURNS TABLE (
 LANGUAGE sql STABLE AS $fn$
   SELECT to_char(o.last_stage_change_at, 'YYYY-MM') AS mes,
          COALESCE(c.name, NULLIF(o.source, ''), 'Sem canal') AS canal,
-         count(*),
+         -- a etapa 'Contato' e fila de espera; contato trabalhado comeca em
+         -- Msg Enviada. Mesmo criterio do resto do dash.
+         count(*) FILTER (WHERE o.stage <> 'Contato'),
          -- funil acumulado: quem chegou em Venda passou por reuniao e proposta
          -- antes. Mesmo criterio do dash Comercial (ghl-supabase.ts).
          count(*) FILTER (WHERE o.stage IN ('Reuniao Realizada', 'Proposta em Analise', 'Venda Fechada')),

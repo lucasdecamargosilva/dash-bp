@@ -580,7 +580,7 @@ const Pipeline = () => {
                 Pipeline por Canal
               </h1>
               <p className="text-sm font-body text-steel-400 dark:text-muted-foreground mt-0.5">
-                Funil de Aquisicao - Prime ROI ({data.totalOpportunities.toLocaleString()} oportunidades)
+                Funil de Aquisicao - Prime ROI ({(data.totalOpportunities - (data.totals.contato || 0)).toLocaleString()} contatos trabalhados · {(data.totals.contato || 0).toLocaleString()} na fila)
               </p>
             </div>
 
@@ -620,11 +620,19 @@ const Pipeline = () => {
                 sum += stageValues[i];
                 accumulated[i] = sum;
               }
-              return STAGES.map((s, i) => (
+              // A etapa "Contato" e a lista de quem ainda vai receber mensagem.
+              // Contato trabalhado comeca em Msg Enviada — por isso o card
+              // "Contatos" acumula de la, e a fila fica num card proprio.
+              const cards = [
+                { key: "fila", label: "Fila de contato", value: stageValues[0], icon: STAGES[0].icon, color: "text-steel-400 dark:text-steel-500" },
+                { key: "contatos", label: "Contatos", value: accumulated[1], icon: STAGES[1].icon, color: STAGES[1].color },
+                ...STAGES.slice(2).map((s, i) => ({ key: s.key, label: s.label, value: accumulated[i + 2], icon: s.icon, color: s.color })),
+              ];
+              return cards.map((s) => (
                 <div key={s.key}>
                   <PipelineKPI
                     label={s.label}
-                    value={accumulated[i]}
+                    value={s.value}
                     icon={s.icon}
                     color={s.color}
                   />
@@ -657,15 +665,19 @@ const Pipeline = () => {
               // vez de esconde-la.
               const MIN_AMOSTRA = 5;
               const canaisBI = data.byCanal
-                .map(c => ({
-                  canal: c.canal, total: c.total, vendas: c.vendaFechada, faturamento: c.faturamento,
-                  poucaAmostra: c.total < MIN_AMOSTRA,
-                  conversao: c.total > 0 ? (c.vendaFechada / c.total) * 100 : 0,
+                .map(c => {
+                  // trabalhadas = tudo menos a fila (etapa Contato)
+                  const trabalhadas = c.total - c.contato;
+                  return {
+                  canal: c.canal, total: trabalhadas, vendas: c.vendaFechada, faturamento: c.faturamento,
+                  poucaAmostra: trabalhadas < MIN_AMOSTRA,
+                  conversao: trabalhadas > 0 ? (c.vendaFechada / trabalhadas) * 100 : 0,
                   ticketMedio: c.vendaFechada > 0 ? c.faturamento / c.vendaFechada : 0,
                   leadsQualificados: c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
-                  taxaQualificacao: c.total > 0 ? ((c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada) / c.total) * 100 : 0,
+                  taxaQualificacao: trabalhadas > 0 ? ((c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada) / trabalhadas) * 100 : 0,
                   reunioes: c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
-                }))
+                  };
+                })
                 .sort((a, b) => b.conversao - a.conversao);
               // O grafico compara TAXA, entao canal de 4 registros distorceria a
               // escala (1 venda em 2 = 50%). Ele fica de fora do grafico, mas
@@ -780,10 +792,10 @@ const Pipeline = () => {
             </div>
             {(() => {
               const pessoasBI = data.byPessoa
-                .filter(p => p.total >= 3 && p.pessoa !== "Sem pessoa")
+                .filter(p => (p.total - p.contato) >= 3 && p.pessoa !== "Sem pessoa")
                 .map(p => ({
-                  pessoa: p.pessoa, total: p.total, vendas: p.vendaFechada, faturamento: p.faturamento,
-                  conversao: p.total > 0 ? (p.vendaFechada / p.total) * 100 : 0,
+                  pessoa: p.pessoa, total: p.total - p.contato, vendas: p.vendaFechada, faturamento: p.faturamento,
+                  conversao: (p.total - p.contato) > 0 ? (p.vendaFechada / (p.total - p.contato)) * 100 : 0,
                   ticketMedio: p.vendaFechada > 0 ? p.faturamento / p.vendaFechada : 0,
                   leadsQualificados: p.whatsappObtido + p.reuniaoAgendada + p.reuniaoRealizada + p.propostaEmAnalise + p.vendaFechada,
                   reunioes: p.reuniaoRealizada + p.propostaEmAnalise + p.vendaFechada, propostas: p.propostaEmAnalise,

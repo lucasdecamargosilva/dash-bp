@@ -555,7 +555,8 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
     .reduce((a, g) => ({
       contatos: a.contatos + (g?.contatos ?? 0), reunioes: a.reunioes + (g?.reunioes ?? 0),
       propostas: a.propostas + (g?.propostas ?? 0), vendas: a.vendas + (g?.vendas ?? 0),
-    }), { contatos: 0, reunioes: 0, propostas: 0, vendas: 0 });
+      faturamento: a.faturamento + ((g as any)?.faturamento ?? 0),
+    }), { contatos: 0, reunioes: 0, propostas: 0, vendas: 0, faturamento: 0 });
 
   return (
     <div className="space-y-3">
@@ -568,9 +569,9 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
           </SelectContent>
         </Select>
         <div className="ml-auto flex flex-wrap gap-4">
-          {[["Contatos", totais.contatos], ["Reuniões", totais.reunioes], ["Propostas", totais.propostas], ["Vendas", totais.vendas]].map(([l, v]) => (
+          {[["Contatos", String(totais.contatos)], ["Reuniões", String(totais.reunioes)], ["Propostas", String(totais.propostas)], ["Vendas", String(totais.vendas)], ["Faturamento", totais.faturamento ? `R$ ${totais.faturamento.toLocaleString("pt-BR")}` : "—"]].map(([l, v]) => (
             <div key={l as string} className="text-right">
-              <p className="font-mono text-base font-bold tabular-nums text-navy-900 dark:text-foreground">{v as number}</p>
+              <p className="font-mono text-base font-bold tabular-nums text-navy-900 dark:text-foreground">{v as string}</p>
               <Label>{l as string}</Label>
             </div>
           ))}
@@ -582,10 +583,10 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto bp-scroll">
-            <table className="w-full min-w-[560px]">
+            <table className="w-full min-w-[680px]">
               <thead>
                 <tr className="border-b border-steel-100 bg-steel-50/50 dark:border-border dark:bg-secondary/30">
-                  {["Canal", "Contatos", "Reuniões", "Propostas", "Vendas"].map((h, i) => (
+                  {["Canal", "Contatos", "Reuniões", "Propostas", "Vendas", "Faturamento (R$)"].map((h, i) => (
                     <th key={h} className={cn("px-3 py-2 font-body text-[10px] font-bold uppercase tracking-wider text-steel-400", i === 0 ? "text-left" : "text-right")}>{h}</th>
                   ))}
                 </tr>
@@ -600,7 +601,7 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
                           <span className={cn("h-2 w-2 rounded-sm", LAYER_COLOR[c.layer])} />{c.name}
                         </span>
                       </td>
-                      {(["contatos", "reunioes", "propostas", "vendas"] as const).map((campo) => (
+                      {(["contatos", "reunioes", "propostas", "vendas", "faturamento"] as const).map((campo) => (
                         <td key={campo} className="px-2 py-1.5 text-right">
                           <Input
                             type="number" min="0" defaultValue={g?.[campo] ?? ""}

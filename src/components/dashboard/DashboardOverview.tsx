@@ -112,7 +112,8 @@ export function DashboardOverview() {
     gSum += gRawStages[i];
     gAcc[i] = gSum;
   }
-  const [gContato, , gConexao, gWhatsapp, gAgendada, gRealizada, gProposta, gVenda] = gAcc;
+  // gAcc[0] seria a fila (etapa Contato); contato trabalhado comeca em Msg Enviada
+  const [, gContato, gConexao, gWhatsapp, gAgendada, gRealizada, gProposta, gVenda] = gAcc;
   const gFaturamento = ghl?.faturamento ?? 0;
 
   const funnelData = [
