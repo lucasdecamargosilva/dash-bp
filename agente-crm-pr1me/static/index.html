@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente Comercial · PR1ME ROI</title>
+<style>
+  :root{
+    --preto:#0A0908; --painel:#100E0B; --painel2:#16130E;
+    --ouro:#D8BE8E; --moldura:#C9A96A;
+    --corpo:#CFC9BF; --mudo:#9A937F; --hairline:#2E2A22; --erro:#C96A6A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--preto);color:var(--corpo);
+    font:15px/1.6 "Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:300;
+    -webkit-font-smoothing:antialiased;
+  }
+  .hidden{display:none!important}
+  .eyebrow{font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--moldura);font-weight:400}
+  svg.wm{display:block;color:#fff}
+
+  /* ---------------- login ---------------- */
+  #login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+  #login::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 70% 50% at 50% 42%,rgba(201,169,106,.10),transparent 70%);pointer-events:none}
+  .card{position:relative;background:var(--painel);border:1px solid var(--hairline);
+    padding:56px 48px 44px;width:100%;max-width:400px}
+  .card::before,.card::after{content:"";position:absolute;width:30px;height:30px;pointer-events:none}
+  .card::before{top:-1px;left:-1px;border-top:2px solid var(--moldura);border-left:2px solid var(--moldura)}
+  .card::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--moldura);border-right:2px solid var(--moldura)}
+  .card .wm{width:210px;margin:0 auto}
+  .descritor{margin-top:14px;text-align:center;font-size:9px;letter-spacing:.3em;color:var(--ouro);text-transform:uppercase}
+  .divisa{width:36px;height:1px;background:var(--hairline);margin:26px auto}
+  .card .eyebrow{text-align:center;display:block}
+  .card form{margin-top:26px;display:flex;flex-direction:column;gap:14px}
+  input{background:var(--preto);border:1px solid var(--hairline);padding:13px 15px;
+    color:var(--corpo);font:inherit;outline:none;border-radius:0;transition:border-color .2s}
+  input::placeholder{color:var(--mudo)}
+  input:focus{border-color:var(--moldura)}
+  button{cursor:pointer;border:0;border-radius:0;font:inherit}
+  .btn-ouro{background:var(--moldura);color:var(--preto);padding:13px;
+    font-size:12px;letter-spacing:.24em;text-transform:uppercase;font-weight:400;transition:background .2s}
+  .btn-ouro:hover{background:var(--ouro)}
+  button:focus-visible,input:focus-visible{outline:1px solid var(--ouro);outline-offset:2px}
+  #login-erro{color:var(--erro);font-size:13px;min-height:18px;text-align:center}
+  .hint{color:var(--mudo);font-size:12px;text-align:center;margin-top:18px}
+
+  /* ---------------- app ---------------- */
+  #app{height:100%;display:flex;flex-direction:column;max-width:880px;margin:0 auto}
+  header{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline)}
+  header .wm{width:96px;flex:none}
+  header .sep{width:1px;height:20px;background:var(--hairline)}
+  header .quem{margin-left:auto;color:var(--mudo);font-size:13px}
+  .btn-ghost{background:none;color:var(--mudo);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+    padding:7px 12px;border:1px solid var(--hairline);transition:color .2s,border-color .2s}
+  .btn-ghost:hover{color:var(--ouro);border-color:var(--moldura)}
+
+  #chat{flex:1;overflow-y:auto;padding:26px 20px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:76%;padding:14px 18px;white-space:pre-wrap;word-wrap:break-word;animation:surgir .24s ease-out}
+  .msg.user{align-self:flex-end;background:var(--painel2);border:1px solid var(--hairline)}
+  .msg.bot{align-self:flex-start;background:var(--painel);border:1px solid var(--hairline);border-left:2px solid var(--moldura)}
+  .msg.bot b{color:var(--ouro);font-weight:400}
+  .msg.erro{border-left-color:var(--erro);color:var(--erro)}
+  .tools{align-self:flex-start;display:flex;gap:14px;flex-wrap:wrap;padding-left:2px}
+  .chip{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--mudo)}
+  .chip::before{content:"[ "}  .chip::after{content:" ]"}
+  .chip.ativa{color:var(--ouro)}
+  .digitando{align-self:flex-start;color:var(--mudo);font-size:13px;font-style:italic;padding-left:2px}
+  .digitando::after{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;
+    background:var(--moldura);margin-left:8px;vertical-align:middle;animation:pulso 1.1s ease-in-out infinite}
+
+  .sugestoes{display:flex;gap:10px;flex-wrap:wrap;padding:0 20px 12px}
+  .sugestoes button{background:none;border:1px solid var(--hairline);color:var(--mudo);
+    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;padding:8px 14px;transition:color .2s,border-color .2s}
+  .sugestoes button:hover{color:var(--ouro);border-color:var(--moldura)}
+
+  footer{padding:16px 20px 22px;border-top:1px solid var(--hairline);display:flex;gap:12px}
+  footer textarea{flex:1;resize:none;background:var(--painel);border:1px solid var(--hairline);
+    padding:13px 15px;color:var(--corpo);font:inherit;line-height:1.5;max-height:140px;outline:none;border-radius:0;transition:border-color .2s}
+  footer textarea::placeholder{color:var(--mudo)}
+  footer textarea:focus{border-color:var(--moldura)}
+  footer .btn-ouro{padding:0 26px;flex:none}
+
+  @keyframes surgir{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes pulso{0%,100%{opacity:.25}50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:560px){
+    .card{padding:44px 28px 36px}
+    .msg{max-width:88%}
+    header .quem{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- wordmark oficial PR1ME ROI (vetor medido do logo real) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="wm-paths" fill="none" stroke="currentColor" stroke-width="11.5" stroke-linecap="butt">
+      <path d="M0.2 5.75 H37 Q60.8 5.75 60.8 30 Q60.8 54.3 37 54.3 H5.75 V100"/>
+      <path d="M82.5 5.75 H119.3 Q143.1 5.75 143.1 30 Q143.1 54.3 119.3 54.3 H88.05 V100"/>
+      <path d="M130.1 54.3 L147.5 100"/>
+      <path d="M160.8 3 L179.7 0 L179.7 12 L160.8 11.5 Z" fill="currentColor" stroke="none"/>
+      <path d="M185 0 V100"/>
+      <path d="M217.1 0 V100"/><path d="M301.2 0 V100"/>
+      <path d="M211.4 0 L226.1 0 L259.2 56.2 L292.3 0 L307 0 L259.2 73.4 Z" fill="currentColor" stroke="none"/>
+      <path d="M382.9 5.75 H332.3 V94.3 H382.9"/><path d="M332.3 50 H380.3"/>
+      <path d="M437.5 5.75 H474.3 Q498.1 5.75 498.1 30 Q498.1 54.3 474.3 54.3 H443.05 V100"/>
+      <path d="M485.1 54.3 L502.5 100"/>
+      <ellipse cx="561.7" cy="50" rx="39.4" ry="44.3"/>
+      <path d="M629.1 0 V100"/>
+    </g>
+  </defs>
+</svg>
+
+<div id="login">
+  <div class="card">
+    <svg class="wm" viewBox="-8 -8 651 116" role="img" aria-label="PR1ME ROI"><use href="#wm-paths"/></svg>
+    <div class="descritor">Direção comercial para<br>vendas de alto valor</div>
+    <div class="divisa"></div>
+    <span class="eyebrow">Agente Comercial · CRM</span>
+    <form id="form-login">
+      <input id="email" type="email" placeholder="email" autocomplete="username" required>
+      <input id="senha" type="password" placeholder="senha" autocomplete="current-password" required>
+      <div id="login-erro"></div>
+      <button class="btn-ouro" type="submit">Entrar</button>
+    </form>
+    <div class="hint">Mesmo acesso do Dash BP</div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <svg class="wm" viewBox="-8 -8 651 116" role="img" aria-label="PR1ME ROI"><use href="#wm-paths"/></svg>
+    <div class="sep"></div>
+    <span class="eyebrow">Agente Comercial</span>
+    <span class="quem" id="quem"></span>
+    <button class="btn-ghost" id="nova">Nova conversa</button>
+    <button class="btn-ghost" id="sair">Sair</button>
+  </header>
+  <div id="chat"></div>
+  <div class="sugestoes" id="sugestoes">
+    <button>Como está o funil?</button>
+    <button>Quais propostas estão paradas?</button>
+    <button>Quem é ICP A em Reunião Agendada?</button>
+  </div>
+  <footer>
+    <textarea id="entrada" rows="1" placeholder="Ex.: Dra. Marina marcou reunião pra sexta"></textarea>
+    <button class="btn-ouro" id="enviar">Enviar</button>
+  </footer>
+</div>
+
+<script>
+let CFG=null, TOKEN=localStorage.getItem("token")||"", CONV=null;
+
+const $=s=>document.querySelector(s);
+const chat=$("#chat");
+
+async function config(){ if(!CFG) CFG=await (await fetch("/api/config")).json(); return CFG; }
+
+async function tentarSessao(){
+  if(!TOKEN) return false;
+  const r=await fetch("/api/me",{headers:{Authorization:"Bearer "+TOKEN}});
+  if(!r.ok){ TOKEN=""; localStorage.removeItem("token"); return false; }
+  const me=await r.json();
+  $("#quem").textContent=me.nome;
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+  if(!chat.childElementCount) addBot("Oi, "+me.nome.split(" ")[0]+". Me diz o que aconteceu com um lead — ou pergunta algo do funil — que eu atualizo o CRM.");
+  return true;
+}
+
+$("#form-login").addEventListener("submit", async e=>{
+  e.preventDefault(); $("#login-erro").textContent="";
+  const c=await config();
+  const r=await fetch(c.supabase_url+"/auth/v1/token?grant_type=password",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":c.supabase_anon_key},
+    body:JSON.stringify({email:$("#email").value.trim(),password:$("#senha").value})
+  });
+  if(!r.ok){ $("#login-erro").textContent="Email ou senha incorretos."; return; }
+  TOKEN=(await r.json()).access_token; localStorage.setItem("token",TOKEN);
+  const ok=await tentarSessao();
+  if(!ok) $("#login-erro").textContent="Login ok, mas seu email não está liberado no agente. Fale com o Raphael.";
+});
+
+$("#sair").onclick=()=>{ localStorage.removeItem("token"); location.reload(); };
+$("#nova").onclick=()=>{ CONV=null; chat.innerHTML=""; tentarSessao(); };
+
+function esc(t){ return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function md(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/^- /gm,"· "); }
+function addUser(t){ const d=document.createElement("div"); d.className="msg user"; d.textContent=t; chat.appendChild(d); rolar(); }
+function addBot(t,erro){ const d=document.createElement("div"); d.className="msg bot"+(erro?" erro":""); d.innerHTML=md(t); chat.appendChild(d); rolar(); return d; }
+function rolar(){ chat.scrollTop=chat.scrollHeight; }
+
+const NOMES={buscar_lead:"buscando lead",buscar_oportunidades:"lendo cards",buscar_funil:"lendo o funil",
+  criar_contato:"criando contato",criar_oportunidade:"criando card",
+  atualizar_oportunidade:"atualizando card",atualizar_contato:"atualizando contato",criar_nota:"gravando nota"};
+
+async function enviar(){
+  const t=$("#entrada").value.trim(); if(!t) return;
+  $("#entrada").value=""; $("#sugestoes").classList.add("hidden");
+  addUser(t);
+  const dig=document.createElement("div"); dig.className="digitando"; dig.textContent="consultando o CRM"; chat.appendChild(dig); rolar();
+  let chips=null;
+  const r=await fetch("/api/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+TOKEN},
+    body:JSON.stringify({message:t,conversation_id:CONV})
+  });
+  if(!r.ok){ dig.remove(); addBot(r.status===401?"Sessão expirou — entre de novo.":"Erro "+r.status,true); if(r.status===401){localStorage.removeItem("token");setTimeout(()=>location.reload(),1500);} return; }
+  const reader=r.body.getReader(); const dec=new TextDecoder(); let buf="";
+  while(true){
+    const {done,value}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf("\n\n"))>=0){
+      const linha=buf.slice(0,i).trim(); buf=buf.slice(i+2);
+      if(!linha.startsWith("data: ")) continue;
+      const ev=JSON.parse(linha.slice(6));
+      if(ev.type==="conversation") CONV=ev.id;
+      else if(ev.type==="tool"){
+        if(!chips){ chips=document.createElement("div"); chips.className="tools"; chat.insertBefore(chips,dig); }
+        const c=document.createElement("span"); c.className="chip ativa"; c.textContent=NOMES[ev.name]||ev.name;
+        chips.querySelectorAll(".chip").forEach(x=>x.classList.remove("ativa"));
+        chips.appendChild(c); rolar();
+      }
+      else if(ev.type==="text"){ dig.remove(); if(chips) chips.querySelectorAll(".chip").forEach(x=>x.classList.remove("ativa")); addBot(ev.text); }
+      else if(ev.type==="error"){ dig.remove(); addBot(ev.text,true); }
+    }
+  }
+  dig.remove?.();
+}
+
+$("#enviar").onclick=enviar;
+$("#entrada").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); enviar(); } });
+$("#sugestoes").addEventListener("click",e=>{ if(e.target.tagName==="BUTTON"){ $("#entrada").value=e.target.textContent; enviar(); } });
+
+tentarSessao();
+</script>
+</body>
+</html>
