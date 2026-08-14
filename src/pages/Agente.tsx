@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Página do Agente Comercial PR1ME — chat que comanda o CRM GoHighLevel.
 // Backend: serviço próprio (FastAPI) — mesmo login Supabase do dash, token vai no Authorization.
+// Em producao a API do agente responde no mesmo dominio do dash (nginx faz proxy de /api/*
+// para o servico interno do agente no EasyPanel) — por isso o padrao e vazio (same-origin).
 const API =
   (import.meta.env.VITE_AGENTE_API_URL as string | undefined) ??
-  (import.meta.env.DEV ? "http://localhost:8000" : "https://agente.bpgroupbr.com.br");
+  (import.meta.env.DEV ? "http://localhost:8000" : "");
 
 const TOOL_LABELS: Record<string, string> = {
   buscar_lead: "buscando lead",

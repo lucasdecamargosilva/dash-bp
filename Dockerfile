@@ -10,14 +10,33 @@ FROM nginx:alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
-RUN echo 'server { \
-    listen 80; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Servico interno do agente no EasyPanel (projeto_servico:porta).
+# Se o servico tiver outro nome, sobrescreva AGENTE_UPSTREAM nas env vars do dashboard.
+ENV AGENTE_UPSTREAM=dash-bp_agente:8000
+
+# Template processado pelo entrypoint do nginx (envsubst) na subida do container:
+# /api/* e proxy para o agente (com suporte a SSE); todo o resto e o SPA do dash.
+RUN printf '%s\n' \
+  'server {' \
+  '    listen 80;' \
+  '    root /usr/share/nginx/html;' \
+  '    index index.html;' \
+  '    location /api/ {' \
+  '        resolver 127.0.0.11 valid=30s;' \
+  '        set $agente_up "${AGENTE_UPSTREAM}";' \
+  '        proxy_pass http://$agente_up;' \
+  '        proxy_http_version 1.1;' \
+  '        proxy_set_header Host $host;' \
+  '        proxy_set_header Connection "";' \
+  '        proxy_buffering off;' \
+  '        proxy_cache off;' \
+  '        proxy_read_timeout 300s;' \
+  '    }' \
+  '    location / {' \
+  '        try_files $uri $uri/ /index.html;' \
+  '    }' \
+  '}' \
+  > /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
