@@ -40,7 +40,15 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )
-anthropic = AsyncAnthropic()  # ANTHROPIC_API_KEY do ambiente
+_anthropic = None
+
+
+def _client() -> AsyncAnthropic:
+    """Cria o cliente na primeira mensagem (nao derruba o app se a env var faltar no boot)."""
+    global _anthropic
+    if _anthropic is None:
+        _anthropic = AsyncAnthropic()
+    return _anthropic
 
 # conversas em memoria: {conv_key: {"messages": [...], "ts": epoch}}
 _conversas = {}
@@ -114,7 +122,7 @@ async def chat(req: Request, authorization: Optional[str] = Header(default=None)
         tools_usadas = []
         try:
             for _ in range(MAX_ITER):
-                resposta = await anthropic.messages.create(
+                resposta = await _client().messages.create(
                     model=MODEL, max_tokens=2048, system=system,
                     tools=TOOLS, messages=conv["messages"],
                 )
@@ -147,6 +155,19 @@ async def chat(req: Request, authorization: Optional[str] = Header(default=None)
 
 def _sse(obj: dict) -> str:
     return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+
+@app.get("/api/health")
+async def health():
+    """Diagnostico de configuracao: mostra o que esta presente (nunca os valores)."""
+    checks = {
+        "ANTHROPIC_API_KEY": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "GHL_PIT": bool(os.environ.get("GHL_PIT")),
+        "SUPABASE_URL": bool(SUPABASE_URL),
+        "SUPABASE_ANON_KEY": bool(SUPABASE_ANON),
+        "equipe_carregada": len([k for k in EQUIPE if "EDITAR" not in k]) > 0,
+    }
+    return {"ok": all(checks.values()), "checks": checks, "model": MODEL}
 
 
 @app.get("/api/config")
