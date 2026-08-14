@@ -16,6 +16,7 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import TV from "./pages/TV";
+import Agente from "./pages/Agente";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,11 @@ const App = () => (
               <Route path="/tv" element={
                 <ProtectedRoute>
                   <TV />
+                </ProtectedRoute>
+              } />
+              <Route path="/agente" element={
+                <ProtectedRoute>
+                  <Agente />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

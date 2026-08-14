@@ -12,6 +12,7 @@ from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -29,6 +30,16 @@ SYSTEM_PROMPT = (BASE / "system_prompt.md").read_text()
 EQUIPE = json.loads((BASE / "equipe.json").read_text())  # email -> {nome, pessoa_conta}
 
 app = FastAPI(title="Agente CRM PR1ME")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dash.bpgroupbr.com.br",   # pagina /agente dentro do Dash BP
+        "http://localhost:5173",           # vite dev do dash
+        "http://localhost:8080",
+    ],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 anthropic = AsyncAnthropic()  # ANTHROPIC_API_KEY do ambiente
 
 # conversas em memoria: {conv_key: {"messages": [...], "ts": epoch}}

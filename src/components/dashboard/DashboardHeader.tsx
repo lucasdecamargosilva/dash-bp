@@ -1,6 +1,6 @@
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, Moon, Sun, BarChart3, GitBranch, Trophy, Settings, ListChecks } from "lucide-react";
+import { LogOut, Moon, Sun, BarChart3, GitBranch, Trophy, Settings, ListChecks, Bot } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/context/TenantContext";
 
@@ -26,6 +26,7 @@ export function DashboardHeader() {
     { path: "/pipeline", label: "Pipeline", icon: GitBranch },
     { path: "/comercial", label: "Comercial", icon: Trophy },
     { path: "/painel", label: "Painel", icon: ListChecks },
+    { path: "/agente", label: "Agente", icon: Bot },
     ...(isAdmin ? [{ path: "/admin", label: "Admin", icon: Settings }] : []),
   ];
 
