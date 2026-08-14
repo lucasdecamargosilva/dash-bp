@@ -16,7 +16,7 @@ ENV AGENTE_UPSTREAM=dash-bp_agente:8000
 
 # Template processado pelo entrypoint do nginx (envsubst) na subida do container:
 # /api/* e proxy para o agente (com suporte a SSE); todo o resto e o SPA do dash.
-RUN printf '%s\n' \
+RUN mkdir -p /etc/nginx/templates && printf '%s\n' \
   'server {' \
   '    listen 80;' \
   '    root /usr/share/nginx/html;' \
