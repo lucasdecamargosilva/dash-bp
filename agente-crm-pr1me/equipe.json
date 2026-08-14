@@ -1,15 +1,10 @@
 {
+  "raphaelacioli@bpgroupbr.com.br": {"nome": "Raphael Acioli", "pessoa_conta": "Acioli"},
   "contato.raphaelmelo@gmail.com": {"nome": "Raphael Acioli", "pessoa_conta": "Acioli"},
-
-  "_EDITAR — adicione os emails reais do time (mesmos do login do Dash BP). Quem nao estiver aqui nao entra.": {},
-  "thiago@EDITAR.com": {"nome": "Thiago Canina", "pessoa_conta": "Canina"},
-  "aline@EDITAR.com": {"nome": "Aline", "pessoa_conta": "Aline"},
-  "caon@EDITAR.com": {"nome": "Felipe Caon", "pessoa_conta": "Caon"},
-  "carol@EDITAR.com": {"nome": "Carol", "pessoa_conta": "Carol"},
-  "oda@EDITAR.com": {"nome": "Marcelo Oda", "pessoa_conta": "Oda"},
-  "sacramento@EDITAR.com": {"nome": "Sacramento", "pessoa_conta": "Sacramento"},
-  "leo@EDITAR.com": {"nome": "Leo", "pessoa_conta": "Leo"},
-  "vivi@EDITAR.com": {"nome": "Vivi", "pessoa_conta": "Vivi"},
-  "alexandre@EDITAR.com": {"nome": "Alexandre", "pessoa_conta": "Alexandre"},
-  "heitor@EDITAR.com": {"nome": "Heitor", "pessoa_conta": "Heitor"}
+  "alexandre@bpgroupbr.com.br": {"nome": "Alexandre", "pessoa_conta": "Alexandre"},
+  "alineautoral@bpgroupbr.com.br": {"nome": "Aline", "pessoa_conta": "Aline"},
+  "felipecaon@bpgroupbr.com.br": {"nome": "Felipe Caon", "pessoa_conta": "Caon"},
+  "carolinesantana@bpgroupbr.com.br": {"nome": "Carol", "pessoa_conta": "Carol"},
+  "odamarcelokenji@gmail.com": {"nome": "Marcelo Oda", "pessoa_conta": "Oda"},
+  "thiagosacramento@bpgroupbr.com.br": {"nome": "Sacramento", "pessoa_conta": "Sacramento"}
 }
