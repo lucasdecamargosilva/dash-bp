@@ -606,7 +606,9 @@ function Metas({ locationId, channels }: { locationId: string; channels: PanelCh
                           <Input
                             type="number" min="0" defaultValue={g?.[campo] ?? ""}
                             onBlur={(e) => { if (String(g?.[campo] ?? "") !== e.target.value) doSave(c.id, campo, e.target.value); }}
-                            className="ml-auto h-7 w-[74px] text-right font-mono text-xs tabular-nums"
+                            // faturamento chega a 6 digitos; 74px cortava o ultimo
+                            // e "69998" era lido como "6999" — dai a soma parecer errada
+                            className={cn("ml-auto h-7 text-right font-mono text-xs tabular-nums", campo === "faturamento" ? "w-[110px]" : "w-[74px]")}
                           />
                         </td>
                       ))}
