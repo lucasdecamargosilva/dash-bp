@@ -240,20 +240,11 @@ function TimeMetas({ locationId, channels, members }: any) {
   const goals = usePanelGoals(locationId, compet);
   const metaDe = (id: string) => goals.data?.find((g) => g.channel_id === id);
 
-  // Em dia/semana a meta mensal vira ritmo: a fatia proporcional do mes.
-  // O time trabalha de segunda a sexta, entao o rateio e por DIAS UTEIS:
-  // ritmo diario = meta / dias uteis do mes; semanal = 5x o diario.
-  const diasUteisNoMes = useMemo(() => {
-    const y = refDate.getFullYear(), m = refDate.getMonth();
-    const total = new Date(y, m + 1, 0).getDate();
-    let uteis = 0;
-    for (let d = 1; d <= total; d++) {
-      const dow = new Date(y, m, d).getDay();
-      if (dow !== 0 && dow !== 6) uteis++;
-    }
-    return uteis;
-  }, [refDate]);
-  const fator = freq === "m" ? 1 : freq === "s" ? 5 / diasUteisNoMes : 1 / diasUteisNoMes;
+  // Em dia/semana a meta mensal vira ritmo pela convencao do time:
+  // mes = 4 semanas = 20 dias uteis, fixo. Meta 1.600 -> 400/semana, 80/dia.
+  // Contar o calendario real (21 ou 22 seg-sex, feriados) dava numeros
+  // quebrados que nao batem com a conta de cabeca de quem cobra a meta.
+  const fator = freq === "m" ? 1 : freq === "s" ? 1 / 4 : 1 / 20;
   const ritmo = (meta?: number | null) => (meta && meta > 0 ? meta * fator : null);
 
   /** Realizado sobre meta, quando há meta. Devolve null para não inventar %. */
