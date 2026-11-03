@@ -464,11 +464,20 @@ export function useRealizado(locationId: string, month: string, freq: Freq = "m"
         Promise.all([
           db.from("panel_source_map").select("pipeline_source,channel_id").eq("location_id", locationId),
           db.from("panel_pessoa_map").select("pipeline_pessoa,member_id").eq("location_id", locationId),
+          db.from("panel_channels").select("id,is_presales").eq("location_id", locationId),
         ]),
       ]);
       if (opps.error) throw opps.error;
-      const [srcMap, pesMap] = maps;
-      if (srcMap.error || pesMap.error) throw srcMap.error || pesMap.error;
+      const [srcMap, pesMap, chans] = maps;
+      if (srcMap.error || pesMap.error || chans.error) throw srcMap.error || pesMap.error || chans.error;
+
+      // A regra da "fila" (etapa Contato nao conta) so vale para canal de
+      // pre-venda em massa, onde Contato e estoque de lista. Em canal de
+      // relacionamento (Referidos, Network...), cada lead em Contato e uma
+      // indicacao real que chegou — conta como contato trabalhado.
+      const preVenda = new Set(
+        (chans.data ?? []).filter((c: any) => c.is_presales).map((c: any) => c.id)
+      );
 
       const byChannel = new Map<string, RealizadoRow>();
       const byMember = new Map<string, RealizadoRow>();
@@ -479,12 +488,10 @@ export function useRealizado(locationId: string, month: string, freq: Freq = "m"
         (pesMap.data ?? []).map((r: { pipeline_pessoa: string; member_id: string | null }) => [r.pipeline_pessoa, r.member_id])
       );
 
-      const bump = (bucket: Map<string, RealizadoRow>, key: string | null, stage: string, value: number) => {
+      const bump = (bucket: Map<string, RealizadoRow>, key: string | null, stage: string, value: number, contaOpp: boolean) => {
         if (!key) return;
         const row = bucket.get(key) ?? { key, opps: 0, reunioes: 0, propostas: 0, vendas: 0, faturamento: 0 };
-        // A etapa "Contato" virou fila de espera (lista de quem ainda vai
-        // receber mensagem). Contato trabalhado comeca em Msg Enviada.
-        if (chegouEm(stage, "Msg Enviada")) row.opps++;
+        if (contaOpp) row.opps++;
         if (chegouEm(stage, "Reuniao Realizada")) row.reunioes++;
         if (chegouEm(stage, "Proposta em Analise")) row.propostas++;
         if (stage === "Venda Fechada") {
@@ -496,20 +503,26 @@ export function useRealizado(locationId: string, month: string, freq: Freq = "m"
 
       let semVinculoCanal = 0;
       let semVinculoPessoa = 0;
+      let total = 0;
+      let naFila = 0;
       for (const o of opps.data ?? []) {
         const chId = o.source ? srcTo.get(o.source) ?? null : null;
         const mbId = o.pessoa ? pesTo.get(o.pessoa) ?? null : null;
         if (!chId) semVinculoCanal++;
         if (!mbId) semVinculoPessoa++;
-        bump(byChannel, chId, o.stage, Number(o.monetary_value));
-        bump(byMember, mbId, o.stage, Number(o.monetary_value));
+        // fila so existe em pre-venda; sem vinculo, vale a regra conservadora
+        const emFila = o.stage === "Contato" && (!chId || preVenda.has(chId));
+        const contaOpp = !emFila;
+        if (contaOpp) total++;
+        if (emFila) naFila++;
+        bump(byChannel, chId, o.stage, Number(o.monetary_value), contaOpp);
+        bump(byMember, mbId, o.stage, Number(o.monetary_value), contaOpp);
       }
       return {
         byChannel,
         byMember,
-        // total acompanha o mesmo criterio das linhas: so contato trabalhado
-        total: (opps.data ?? []).filter((o: any) => chegouEm(o.stage, "Msg Enviada")).length,
-        naFila: (opps.data ?? []).filter((o: any) => o.stage === "Contato").length,
+        total,
+        naFila,
         semVinculoCanal,
         semVinculoPessoa,
       };
