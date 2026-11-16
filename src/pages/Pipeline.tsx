@@ -676,6 +676,7 @@ const Pipeline = () => {
                   leadsQualificados: c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
                   taxaQualificacao: trabalhadas > 0 ? ((c.whatsappObtido + c.reuniaoAgendada + c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada) / trabalhadas) * 100 : 0,
                   reunioes: c.reuniaoRealizada + c.propostaEmAnalise + c.vendaFechada,
+                  propostas: c.propostaEmAnalise + c.vendaFechada,
                   };
                 })
                 .sort((a, b) => b.conversao - a.conversao);
@@ -748,6 +749,7 @@ const Pipeline = () => {
                             </div>
                           </th>
                           <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Reunioes</th>
+                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Propostas</th>
                           <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Vendas</th>
                           <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Conversao</th>
                           <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Faturamento</th>
@@ -770,6 +772,7 @@ const Pipeline = () => {
                             <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.leadsQualificados}</td>
                             <td className="px-4 py-3 text-right"><span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded", c.poucaAmostra ? "bg-steel-100 dark:bg-secondary text-steel-400 dark:text-muted-foreground" : c.taxaQualificacao >= 5 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : c.taxaQualificacao >= 1 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground")}>{c.taxaQualificacao.toFixed(1)}%</span></td>
                             <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.reunioes}</td>
+                            <td className="px-4 py-3 text-right font-body text-sm text-navy-800 dark:text-foreground/80 tabular-nums">{c.propostas}</td>
                             <td className="px-4 py-3 text-right font-body text-sm font-bold text-navy-900 dark:text-foreground tabular-nums">{c.vendas}</td>
                             <td className="px-4 py-3 text-right"><span className={cn("text-[10px] font-body font-bold px-1.5 py-0.5 rounded", c.conversao >= 1 ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : c.conversao >= 0.1 ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-steel-100 dark:bg-secondary text-steel-500 dark:text-muted-foreground")}>{c.conversao.toFixed(2)}%</span></td>
                             <td className="px-4 py-3 text-right font-body text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{c.faturamento > 0 ? formatCurrency(c.faturamento) : "-"}</td>
