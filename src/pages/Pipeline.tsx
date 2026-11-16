@@ -485,6 +485,14 @@ const Pipeline = () => {
   });
   const [view, setView] = useState<"canal" | "pessoa" | "combo">("combo");
   const [filterPessoa, setFilterPessoa] = useState("all");
+  // ordenacao da tabela "Conversao por Canal" — clique no cabecalho
+  const [biSortKey, setBiSortKey] = useState<string>("conversao");
+  const [biSortDir, setBiSortDir] = useState<"asc" | "desc">("desc");
+  const handleBiSort = (key: string) => {
+    if (biSortKey === key) setBiSortDir(d => (d === "desc" ? "asc" : "desc"));
+    else { setBiSortKey(key); setBiSortDir("desc"); }
+  };
+  const biSeta = (key: string) => (biSortKey === key ? (biSortDir === "desc" ? " ↓" : " ↑") : "");
 
   const { data, isLoading, error } = useGHLData(dateRange);
 
@@ -679,13 +687,24 @@ const Pipeline = () => {
                   propostas: c.propostaEmAnalise + c.vendaFechada,
                   };
                 })
-                .sort((a, b) => b.conversao - a.conversao);
+                ;
               // O grafico compara TAXA, entao canal de 4 registros distorceria a
               // escala (1 venda em 2 = 50%). Ele fica de fora do grafico, mas
               // aparece na tabela e e nomeado logo abaixo — corte anunciado, nao
-              // silencioso.
-              const noGrafico = canaisBI.filter(c => !c.poucaAmostra).slice(0, 10);
-              const foraDoGrafico = canaisBI.filter(c => c.poucaAmostra);
+              // silencioso. O grafico ordena sempre por conversao; a TABELA segue
+              // o cabecalho clicado.
+              const porConversao = [...canaisBI].sort((a, b) => b.conversao - a.conversao);
+              const noGrafico = porConversao.filter(c => !c.poucaAmostra).slice(0, 10);
+              const foraDoGrafico = porConversao.filter(c => c.poucaAmostra);
+              const ordenado = [...canaisBI].sort((a, b) => {
+                if (biSortKey === "canal") {
+                  const cmp = a.canal.localeCompare(b.canal);
+                  return biSortDir === "desc" ? -cmp : cmp;
+                }
+                const av = (a as any)[biSortKey] ?? 0;
+                const bv = (b as any)[biSortKey] ?? 0;
+                return biSortDir === "desc" ? bv - av : av - bv;
+              });
               return (
                 <div className="p-5 space-y-5">
                   <div className="h-64">
@@ -728,10 +747,10 @@ const Pipeline = () => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-steel-100 dark:border-border bg-steel-50/50 dark:bg-secondary/30">
-                          <th className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Canal</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Total</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground group/qual relative">
-                            <span className="border-b border-dashed border-steel-300 dark:border-steel-600 cursor-default">Qualificados</span>
+                          <th onClick={() => handleBiSort("canal")} className="px-4 py-2.5 text-left text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Canal{biSeta("canal")}</th>
+                          <th onClick={() => handleBiSort("total")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Total{biSeta("total")}</th>
+                          <th onClick={() => handleBiSort("leadsQualificados")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none group/qual relative">
+                            <span className="border-b border-dashed border-steel-300 dark:border-steel-600 cursor-pointer">Qualificados</span>{biSeta("leadsQualificados")}
                             <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/qual:block">
                               <div className="bg-navy-900 dark:bg-card text-white dark:text-foreground font-normal normal-case tracking-normal rounded-xl px-4 py-3 shadow-lg border border-navy-800 dark:border-border w-64">
                                 <p className="text-sm font-semibold mb-1">Leads Qualificados</p>
@@ -739,8 +758,8 @@ const Pipeline = () => {
                               </div>
                             </div>
                           </th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground group/txq relative">
-                            <span className="border-b border-dashed border-steel-300 dark:border-steel-600 cursor-default">Tx Qualif.</span>
+                          <th onClick={() => handleBiSort("taxaQualificacao")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none group/txq relative">
+                            <span className="border-b border-dashed border-steel-300 dark:border-steel-600 cursor-pointer">Tx Qualif.</span>{biSeta("taxaQualificacao")}
                             <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/txq:block">
                               <div className="bg-navy-900 dark:bg-card text-white dark:text-foreground font-normal normal-case tracking-normal rounded-xl px-4 py-3 shadow-lg border border-navy-800 dark:border-border w-56">
                                 <p className="text-sm font-semibold mb-1">Taxa de Qualificacao</p>
@@ -748,16 +767,16 @@ const Pipeline = () => {
                               </div>
                             </div>
                           </th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Reunioes</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Propostas</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Vendas</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Conversao</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Faturamento</th>
-                          <th className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground">Ticket Medio</th>
+                          <th onClick={() => handleBiSort("reunioes")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Reunioes{biSeta("reunioes")}</th>
+                          <th onClick={() => handleBiSort("propostas")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Propostas{biSeta("propostas")}</th>
+                          <th onClick={() => handleBiSort("vendas")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Vendas{biSeta("vendas")}</th>
+                          <th onClick={() => handleBiSort("conversao")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Conversao{biSeta("conversao")}</th>
+                          <th onClick={() => handleBiSort("faturamento")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Faturamento{biSeta("faturamento")}</th>
+                          <th onClick={() => handleBiSort("ticketMedio")} className="px-4 py-2.5 text-right text-[10px] font-body font-bold uppercase tracking-[0.1em] text-steel-400 dark:text-muted-foreground cursor-pointer hover:text-navy-800 dark:hover:text-foreground transition-colors select-none">Ticket Medio{biSeta("ticketMedio")}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {canaisBI.map((c, i) => (
+                        {ordenado.map((c, i) => (
                           <tr key={i} className="border-b border-steel-50 dark:border-border/50 hover:bg-sky-50/30 dark:hover:bg-secondary/30 transition-colors">
                             <td className="px-4 py-3 font-body text-sm font-semibold text-navy-900 dark:text-foreground">
                               {c.canal}
